@@ -16,7 +16,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _usageItem = DisabledItem("Token usage: loading...");
     private readonly ToolStripMenuItem _updatedItem = DisabledItem("Not refreshed yet");
     private readonly ToolStripMenuItem _refreshItem = new("Refresh now");
-    private readonly ToolStripMenuItem _testNotificationItem = new("Test reset notification");
     private readonly ToolStripMenuItem _startupItem = new("Start with Windows") { CheckOnClick = false };
     private readonly System.Windows.Forms.Timer _refreshTimer;
     private readonly System.Windows.Forms.Timer _initialTimer;
@@ -51,7 +50,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
             new ToolStripSeparator(),
             _updatedItem,
             _refreshItem,
-            _testNotificationItem,
             _startupItem,
             new ToolStripSeparator(),
             new ToolStripMenuItem("Exit", null, (_, _) => ExitThread())
@@ -63,7 +61,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         };
         _profileItem.Click += (_, _) => Brand.OpenUrl(Brand.CodexUsageUrl);
         _refreshItem.Click += async (_, _) => await RefreshAsync(showFailureBalloon: true);
-        _testNotificationItem.Click += (_, _) => ShowTestNotification();
         _startupItem.Click += (_, _) => ToggleStartup();
 
         _currentIcon = TrayIconRenderer.Render(null);
@@ -75,14 +72,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ContextMenuStrip = _menu
         };
         _notifyIcon.MouseMove += (_, _) => ShowHoverCard();
-        _notifyIcon.MouseClick += (_, args) =>
-        {
-            if (args.Button == MouseButtons.Left)
-            {
-                _hoverForm.Hide();
-                _menu.Show(Cursor.Position);
-            }
-        };
 
         _refreshTimer = new System.Windows.Forms.Timer { Interval = (int)RefreshInterval.TotalMilliseconds };
         _refreshTimer.Tick += async (_, _) => await RefreshAsync(showFailureBalloon: false);
