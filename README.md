@@ -18,6 +18,8 @@
 
 Codex Tray is a Bear Stone Smart Home utility from [vCloudInfo.com](https://www.vcloudinfo.com). Browse the larger collection in the [Bear Stone Smart Home repository](https://github.com/CCOSTAN/Home-AssistantConfig).
 
+Read the launch article: [Codex Tray: Monitor OpenAI Codex Usage on Windows](https://www.vcloudinfo.com/2026/08/codex-tray-monitor-openai-codex-usage-windows.html).
+
 This unofficial community project is not affiliated with OpenAI.
 
 ## What it does
