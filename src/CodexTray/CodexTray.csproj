@@ -7,11 +7,11 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>CodexTray</AssemblyName>
-    <Version>0.1.0</Version>
     <Authors>Carlo Costanzo and contributors</Authors>
     <Description>A small Windows notification-area monitor for Codex usage limits.</Description>
     <RepositoryUrl>https://github.com/CCOSTAN/CodexTray</RepositoryUrl>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\codex-tray.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\CodexTray.Core\CodexTray.Core.csproj" />

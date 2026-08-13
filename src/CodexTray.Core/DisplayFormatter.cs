@@ -43,6 +43,29 @@ public static class DisplayFormatter
         };
     }
 
+    public static string CreditsLine(int? availableResetCredits) => availableResetCredits is { } credits
+        ? $"Reset credits: {credits}"
+        : "Reset credits: not reported";
+
+    public static string UsageLine(UsageSummary? usage)
+    {
+        if (usage is null)
+        {
+            return "Token usage: not reported";
+        }
+
+        var parts = new List<string>();
+        if (usage.TodayTokens is { } today)
+        {
+            parts.Add($"today {CompactNumber(today)}");
+        }
+        if (usage.LifetimeTokens is { } lifetime)
+        {
+            parts.Add($"lifetime {CompactNumber(lifetime)}");
+        }
+        return parts.Count == 0 ? "Token usage: not reported" : $"Tokens: {string.Join(" · ", parts)}";
+    }
+
     private static string Countdown(DateTimeOffset target, DateTimeOffset now)
     {
         var remaining = target - now;

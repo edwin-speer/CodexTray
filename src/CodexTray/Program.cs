@@ -3,7 +3,7 @@ namespace CodexTray;
 internal static class Program
 {
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
         using var singleInstance = new Mutex(initiallyOwned: true, "Local\\CodexTray", out var createdNew);
         if (!createdNew)
@@ -12,6 +12,8 @@ internal static class Program
         }
 
         ApplicationConfiguration.Initialize();
-        Application.Run(new TrayApplicationContext());
+        var showTestNotification = args.Contains("--test-notification", StringComparer.OrdinalIgnoreCase);
+        var showTestHover = args.Contains("--test-hover", StringComparer.OrdinalIgnoreCase);
+        Application.Run(new TrayApplicationContext(showTestNotification, showTestHover));
     }
 }

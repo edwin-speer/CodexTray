@@ -10,6 +10,8 @@ Run("detects a weekly reset", DetectsWeeklyReset, failures);
 Run("detects an unused weekly reset", DetectsUnusedWeeklyReset, failures);
 Run("detects a new reset credit", DetectsNewResetCredit, failures);
 Run("does not duplicate a weekly-only window", DoesNotDuplicateWeeklyOnlyWindow, failures);
+Run("maps tray usage colors", MapsTrayUsageColors, failures);
+Run("pauses and resumes refresh state", PausesAndResumesRefreshState, failures);
 
 if (failures.Count > 0)
 {
@@ -17,7 +19,7 @@ if (failures.Count > 0)
     return 1;
 }
 
-Console.WriteLine("All 8 Codex Tray checks passed.");
+Console.WriteLine("All 10 Codex Tray checks passed.");
 return 0;
 
 static void ParsesRateWindows()
@@ -92,6 +94,26 @@ static void DoesNotDuplicateWeeklyOnlyWindow()
     Equal<LimitWindow?>(null, snapshot.SessionWindow, "weekly-only session window");
     Equal(10_080, snapshot.WeeklyWindow?.WindowMinutes, "weekly-only weekly duration");
     True(DisplayFormatter.BuildTooltip(snapshot).StartsWith("Codex: week 89%", StringComparison.Ordinal), "weekly-only tooltip");
+}
+
+static void MapsTrayUsageColors()
+{
+    Equal(UsageBand.Unknown, UsageBandSelector.Select(null), "unknown usage band");
+    Equal(UsageBand.Green, UsageBandSelector.Select(51), "green usage band");
+    Equal(UsageBand.Amber, UsageBandSelector.Select(50), "amber usage band");
+    Equal(UsageBand.Amber, UsageBandSelector.Select(21), "low amber usage band");
+    Equal(UsageBand.Red, UsageBandSelector.Select(20), "red usage band");
+}
+
+static void PausesAndResumesRefreshState()
+{
+    var gate = new SessionRefreshGate();
+    True(!gate.IsPaused, "refresh starts enabled");
+    True(gate.Pause(), "first pause changes state");
+    True(gate.IsPaused, "refresh is paused");
+    True(!gate.Pause(), "second pause does not change state");
+    True(gate.Resume(), "resume changes state");
+    True(!gate.IsPaused, "refresh resumes");
 }
 
 static CodexSnapshot ParseSnapshot()

@@ -1,28 +1,53 @@
-# Codex Tray
+<h1 align="center">
+  <a href="https://www.vcloudinfo.com"><img src="assets/bear-stone-smart-home.png" alt="Bear Stone Smart Home" width="180"></a>
+  <br>
+  Codex Tray
+</h1>
 
-Codex Tray is a small Windows notification-area monitor for Codex usage limits.
+<p align="center">A small Windows notification-area monitor for Codex usage limits.</p>
 
-This is an unofficial community project and is not affiliated with OpenAI.
+<p align="center">
+  <a href="https://www.vcloudinfo.com"><img src="https://img.shields.io/static/v1?label=vCloudInfo&message=Blog&color=21759B&logo=wordpress&logoColor=white" alt="vCloudInfo blog"></a>
+  <a href="https://github.com/CCOSTAN/Home-AssistantConfig"><img src="https://img.shields.io/github/stars/CCOSTAN/Home-AssistantConfig.svg?label=Bear%20Stone%20repo&logo=github" alt="Bear Stone Smart Home repository"></a>
+  <a href="https://github.com/CCOSTAN/CodexTray/actions/workflows/ci.yml"><img src="https://github.com/CCOSTAN/CodexTray/actions/workflows/ci.yml/badge.svg" alt="Build status"></a>
+</p>
+
+Codex Tray is a Bear Stone Smart Home utility from [vCloudInfo.com](https://www.vcloudinfo.com). Browse the larger collection in the [Bear Stone Smart Home repository](https://github.com/CCOSTAN/Home-AssistantConfig).
+
+This unofficial community project is not affiliated with OpenAI.
+
+## What it does
+
+- Hover over the tray icon to see the full short-window, weekly, credit, token, and update summary.
+- Click **Profile & usage** to open the [official Codex usage page](https://chatgpt.com/codex/cloud/settings/analytics#usage).
+- Read remaining capacity from the icon: green above 50%, amber from 21% through 50%, and red at 20% or below.
+- Receive a Windows notification and a taskbar window with a red **1** badge when the weekly window resets or OpenAI adds a reset credit.
+- Pause polling while Windows is locked, then refresh after unlock.
+- Refresh every five minutes or use **Refresh now**.
+- Start with Windows through the current-user startup setting.
+
+## Screenshots
+
+<p align="center">
+  <img src="assets/codex-tray-hover.png" alt="Codex Tray full usage summary shown on hover" width="360">
+  <br>
+  Hover over the tray icon for the full usage block.
+</p>
+
+<p align="center">
+  <img src="assets/codex-tray-reset-notification.png" alt="Codex weekly reset taskbar notification" width="500">
+  <br>
+  A weekly reset opens a taskbar window with a red 1 badge.
+</p>
 
 ## Trust model
 
-- Uses the documented local `codex app-server` JSONL protocol.
-- Never reads `.codex/auth.json`.
-- Never handles OAuth or API tokens.
-- Makes no HTTP requests itself.
-- Stores no account data, usage history, or credentials. It persists only the last weekly-window counters and reset-credit count needed to detect notifications.
-- Has no updater. New builds are installed deliberately.
-- Uses only the .NET Windows desktop framework; there are no NuGet dependencies.
-
-The local Codex process remains responsible for authentication and its own OpenAI network access.
-
-## Features
-
-- Tray icon shows the percentage remaining in the short usage window, or the weekly window when that is the only limit reported.
-- Menu shows short-window and weekly usage, reset times, plan, reset-credit count, and token summaries when Codex returns them.
-- Refreshes every five minutes and supports manual refresh.
-- Shows a Windows notification when a weekly window resets or the available reset-credit count increases.
-- Optional per-user "Start with Windows" registration from the tray menu.
+- The app uses OpenAI's documented [`codex app-server`](https://developers.openai.com/codex/app-server/) JSONL protocol.
+- The app does not read `.codex/auth.json`, handle OAuth/API tokens, or make HTTP requests.
+- Codex owns authentication and OpenAI network access.
+- Codex Tray stores the last weekly reset timestamp, weekly usage, and reset-credit count under the current user's local application-data folder. It needs those values to recognize the next reset or credit.
+- The app has no updater and no NuGet dependencies.
+- Menu links open fixed HTTPS pages only after you click them.
 
 ## Build and verify
 
@@ -32,7 +57,19 @@ dotnet run --project .\tests\CodexTray.Tests\CodexTray.Tests.csproj -c Release
 dotnet run --project .\tools\CodexTray.Probe\CodexTray.Probe.csproj -c Release
 ```
 
-The probe performs a read-only live request through the installed Codex CLI and prints a credential-free summary.
+The probe makes a read-only request through the installed Codex CLI and prints a credential-free summary.
+
+Use the same taskbar notification path without waiting for a real reset:
+
+```powershell
+dotnet run --project .\src\CodexTray\CodexTray.csproj -c Release -- --test-notification
+```
+
+Preview the hover card with current data:
+
+```powershell
+dotnet run --project .\src\CodexTray\CodexTray.csproj -c Release -- --test-hover
+```
 
 ## Publish
 
@@ -40,17 +77,23 @@ The probe performs a read-only live request through the installed Codex CLI and 
 dotnet publish .\src\CodexTray\CodexTray.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o .\artifacts\publish
 ```
 
-Run `CodexTray.exe` from the publish directory. No installer or administrator rights are required.
+Run `CodexTray.exe` from the publish directory. The app requires no installer or administrator rights.
 
-Windows may show an unknown-publisher warning because releases are not code-signed yet. Build from source if that warning is not acceptable for your environment.
+Windows may show an unknown-publisher warning because releases are not code-signed yet. Build from source if your environment requires a signed executable.
 
 ## Codex discovery
 
-Codex Tray checks, in order:
+Codex Tray checks these locations in order:
 
-1. `CODEX_TRAY_CODEX_PATH`, if set to a `codex.exe` file.
+1. `CODEX_TRAY_CODEX_PATH`, when it points to a `codex.exe` file.
 2. The current user's Codex desktop installation.
 3. `codex.exe` entries on `PATH`.
+
+## More from Bear Stone Smart Home
+
+- [vCloudInfo blog](https://www.vcloudinfo.com)
+- [Bear Stone Smart Home repository](https://github.com/CCOSTAN/Home-AssistantConfig)
+- [vCloudInfo on YouTube](https://www.youtube.com/vCloudInfo?sub_confirmation=1)
 
 ## License
 

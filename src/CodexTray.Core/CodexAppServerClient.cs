@@ -29,7 +29,12 @@ public sealed class CodexAppServerClient
                 id = 1,
                 @params = new
                 {
-                    clientInfo = new { name = "CodexTray", title = "Codex Tray", version = "0.1.0" }
+                    clientInfo = new
+                    {
+                        name = "CodexTray",
+                        title = "Codex Tray",
+                        version = typeof(CodexAppServerClient).Assembly.GetName().Version?.ToString(3) ?? "unknown"
+                    }
                 }
             }, timeout.Token);
 
@@ -191,4 +196,3 @@ public sealed class CodexAppServerClient
         }
     }
 }
-
