@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>CodexTray</AssemblyName>
+    <Version>0.1.0</Version>
+    <Authors>Carlo Costanzo and contributors</Authors>
+    <Description>A small Windows notification-area monitor for Codex usage limits.</Description>
+    <RepositoryUrl>https://github.com/CCOSTAN/CodexTray</RepositoryUrl>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CodexTray.Core\CodexTray.Core.csproj" />
+  </ItemGroup>
+</Project>
