@@ -1,8 +1,12 @@
-<h1 align="center">
-  <a href="https://www.vcloudinfo.com"><img src="assets/bear-stone-smart-home.png" alt="Bear Stone Smart Home" width="180"></a>
-  <br>
-  Codex Tray
-</h1>
+<p align="center">
+  <a href="https://www.vcloudinfo.com"><img src="assets/codex-tray-header.png" alt="vCloudInfo Codex Tray, a Windows usage monitor for Codex" width="900"></a>
+</p>
+
+<p align="center">
+  <a href="https://x.com/CCostan"><img src="https://img.shields.io/static/v1?label=TALK&message=%40CCostan&color=1684C6&logo=x&logoColor=white" alt="Talk with Carlo on X"></a>
+  <a href="https://github.com/CCOSTAN"><img src="https://img.shields.io/static/v1?label=CODE&message=CCOSTAN&color=1684C6&logo=github&logoColor=white" alt="CCOSTAN on GitHub"></a>
+  <a href="https://www.youtube.com/vCloudInfo?sub_confirmation=1"><img src="https://img.shields.io/static/v1?label=WATCH&message=vCloudInfo&color=FF0000&logo=youtube&logoColor=white" alt="Watch vCloudInfo on YouTube"></a>
+</p>
 
 <p align="center">A small Windows notification-area monitor for Codex usage limits.</p>
 
@@ -19,6 +23,7 @@ This unofficial community project is not affiliated with OpenAI.
 ## What it does
 
 - Hover over the tray icon to see the full short-window, weekly, credit, token, and update summary.
+- Right-click the tray icon to open the menu. Left-click has no action.
 - Click **Profile & usage** to open the [official Codex usage page](https://chatgpt.com/codex/cloud/settings/analytics#usage).
 - Read remaining capacity from the icon: green above 50%, amber from 21% through 50%, and red at 20% or below.
 - Receive a Windows notification and a taskbar window with a red **1** badge when the weekly window resets or OpenAI adds a reset credit.
@@ -29,9 +34,9 @@ This unofficial community project is not affiliated with OpenAI.
 ## Screenshots
 
 <p align="center">
-  <img src="assets/codex-tray-hover.png" alt="Codex Tray full usage summary shown on hover" width="360">
+  <img src="assets/codex-tray-taskbar-hover.png" alt="Codex Tray full usage summary shown over the Windows taskbar" width="294">
   <br>
-  Hover over the tray icon for the full usage block.
+  Hover over the installed tray icon for the full usage block.
 </p>
 
 <p align="center">
