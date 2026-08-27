@@ -6,7 +6,9 @@ internal sealed class UsageHoverForm : Form
 {
     private readonly LinkLabel _profile = new();
     private readonly Label _session = DetailLabel();
+    private readonly ProgressBar _sessionBar = UsageBar("Daily usage");
     private readonly Label _weekly = DetailLabel();
+    private readonly ProgressBar _weeklyBar = UsageBar("Weekly usage");
     private readonly Label _credits = DetailLabel();
     private readonly Label _usage = DetailLabel();
     private readonly Label _updated = DetailLabel(Color.FromArgb(148, 163, 184));
@@ -32,8 +34,8 @@ internal sealed class UsageHoverForm : Form
         _profile.LinkColor = Color.FromArgb(56, 189, 248);
         _profile.ActiveLinkColor = Color.FromArgb(125, 211, 252);
         _profile.VisitedLinkColor = _profile.LinkColor;
-        _profile.Margin = new Padding(0, 0, 0, 7);
-        _profile.Text = "Profile & usage ↗";
+        _profile.Margin = new Padding(0, 7, 0, 0);
+        _profile.Text = "Analytics ↗";
         _profile.LinkClicked += (_, _) => Brand.OpenUrl(Brand.CodexUsageUrl);
 
         var panel = new TableLayoutPanel
@@ -44,12 +46,14 @@ internal sealed class UsageHoverForm : Form
             ColumnCount = 1,
             Padding = new Padding(13, 11, 18, 12)
         };
-        panel.Controls.Add(_profile);
         panel.Controls.Add(_session);
+        panel.Controls.Add(_sessionBar);
         panel.Controls.Add(_weekly);
+        panel.Controls.Add(_weeklyBar);
         panel.Controls.Add(_credits);
         panel.Controls.Add(_usage);
         panel.Controls.Add(_updated);
+        panel.Controls.Add(_profile);
         Controls.Add(panel);
     }
 
@@ -70,12 +74,9 @@ internal sealed class UsageHoverForm : Form
 
     public void UpdateSnapshot(CodexSnapshot snapshot)
     {
-        _profile.Text = string.IsNullOrWhiteSpace(snapshot.PlanType)
-            ? "Profile & usage ↗"
-            : $"Profile & usage · {snapshot.PlanType} ↗";
-        _session.Visible = snapshot.SessionWindow is not null;
-        _session.Text = DisplayFormatter.WindowLine("Short window", snapshot.SessionWindow, DateTimeOffset.Now);
-        _weekly.Text = DisplayFormatter.WindowLine("Weekly", snapshot.WeeklyWindow, DateTimeOffset.Now);
+        var now = DateTimeOffset.Now;
+        SetWindow(_session, _sessionBar, "Daily", snapshot.SessionWindow, now);
+        SetWindow(_weekly, _weeklyBar, "Weekly", snapshot.WeeklyWindow, now);
         _credits.Text = DisplayFormatter.CreditsLine(snapshot.AvailableResetCredits);
         _usage.Text = DisplayFormatter.UsageLine(snapshot.Usage);
         _updated.Text = $"Updated {snapshot.FetchedAt.LocalDateTime:t}";
@@ -113,4 +114,31 @@ internal sealed class UsageHoverForm : Form
         Margin = new Padding(0, 0, 0, 4),
         MaximumSize = new Size(460, 0)
     };
+
+    private static ProgressBar UsageBar(string accessibleName) => new()
+    {
+        AccessibleName = accessibleName,
+        Height = 12,
+        Margin = new Padding(0, 0, 0, 7),
+        Maximum = 100,
+        Style = ProgressBarStyle.Continuous,
+        Width = 320
+    };
+
+    private static void SetWindow(
+        Label label,
+        ProgressBar bar,
+        string name,
+        LimitWindow? window,
+        DateTimeOffset now)
+    {
+        label.Visible = bar.Visible = window is not null;
+        if (window is null)
+        {
+            return;
+        }
+
+        label.Text = DisplayFormatter.WindowLine(name, window, now, showPercentages: false);
+        bar.Value = (int)Math.Round(Math.Clamp(window.UsedPercent, 0d, 100d));
+    }
 }

@@ -93,8 +93,9 @@ Windows may show an unknown-publisher warning because releases are not code-sign
 Codex Tray checks these locations in order:
 
 1. `CODEX_TRAY_CODEX_PATH`, when it points to a `codex.exe` file.
-2. The current user's Codex desktop installation.
-3. `codex.exe` entries on `PATH`.
+2. The current user's npm-installed Codex CLI.
+3. The current user's Codex desktop installation.
+4. `codex.exe` entries on `PATH`.
 
 ## More from Bear Stone Smart Home
 

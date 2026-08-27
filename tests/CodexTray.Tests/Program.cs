@@ -5,7 +5,7 @@ var failures = new List<string>();
 Run("parses rate windows and reset credits", ParsesRateWindows, failures);
 Run("parses usage summary and today's tokens", ParsesUsage, failures);
 Run("prefers the codex bucket", PrefersCodexBucket, failures);
-Run("formats bounded tray tooltip", FormatsTooltip, failures);
+Run("formats percentage-free bar headings", FormatsBarHeading, failures);
 Run("detects a weekly reset", DetectsWeeklyReset, failures);
 Run("detects an unused weekly reset", DetectsUnusedWeeklyReset, failures);
 Run("detects a new reset credit", DetectsNewResetCredit, failures);
@@ -45,11 +45,11 @@ static void PrefersCodexBucket()
     Equal("codex", snapshot.PreferredBucket?.Id, "preferred bucket id");
 }
 
-static void FormatsTooltip()
+static void FormatsBarHeading()
 {
-    var tooltip = DisplayFormatter.BuildTooltip(ParseSnapshot());
-    True(tooltip.StartsWith("Codex: 75% left", StringComparison.Ordinal), "tooltip value");
-    True(tooltip.Length <= 63, "tooltip length");
+    var now = new DateTimeOffset(2026, 8, 26, 12, 0, 0, TimeSpan.Zero);
+    var window = new LimitWindow(25, 300, now.AddHours(1));
+    Equal("Daily · resets in 1h 0m", DisplayFormatter.WindowLine("Daily", window, now, showPercentages: false), "bar heading");
 }
 
 static void DetectsWeeklyReset()
@@ -93,7 +93,6 @@ static void DoesNotDuplicateWeeklyOnlyWindow()
     var snapshot = CodexSnapshotParser.Parse(null, limits.RootElement, null, DateTimeOffset.Now);
     Equal<LimitWindow?>(null, snapshot.SessionWindow, "weekly-only session window");
     Equal(10_080, snapshot.WeeklyWindow?.WindowMinutes, "weekly-only weekly duration");
-    True(DisplayFormatter.BuildTooltip(snapshot).StartsWith("Codex: week 89%", StringComparison.Ordinal), "weekly-only tooltip");
 }
 
 static void MapsTrayUsageColors()

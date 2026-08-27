@@ -4,7 +4,7 @@ namespace CodexTray.Core;
 
 public static class DisplayFormatter
 {
-    public static string WindowLine(string label, LimitWindow? window, DateTimeOffset now)
+    public static string WindowLine(string label, LimitWindow? window, DateTimeOffset now, bool showPercentages = true)
     {
         if (window is null)
         {
@@ -16,20 +16,9 @@ public static class DisplayFormatter
         var reset = window.ResetsAt is { } resetsAt
             ? $" · resets {Countdown(resetsAt, now)}"
             : string.Empty;
-        return $"{label}: {remaining:0}% left ({used:0}% used){reset}";
-    }
-
-    public static string BuildTooltip(CodexSnapshot snapshot)
-    {
-        var tooltip = snapshot.SessionWindow is { } sessionWindow
-            ? $"Codex: {Math.Round(sessionWindow.RemainingPercent):0}% left"
-              + (snapshot.WeeklyWindow is { } weeklyWindow
-                  ? $", week {Math.Round(weeklyWindow.RemainingPercent):0}%"
-                  : string.Empty)
-            : snapshot.WeeklyWindow is { } weeklyOnly
-                ? $"Codex: week {Math.Round(weeklyOnly.RemainingPercent):0}% left"
-                : "Codex: unavailable";
-        return tooltip.Length <= 63 ? tooltip : tooltip[..63];
+        return showPercentages
+            ? $"{label}: {remaining:0}% left ({used:0}% used){reset}"
+            : $"{label}{reset}";
     }
 
     public static string CompactNumber(long value)

@@ -33,6 +33,10 @@ public static class CodexLocator
             yield return explicitPath;
         }
 
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        yield return Path.Combine(appData, "npm", "node_modules", "@openai", "codex", "node_modules", "@openai",
+            "codex-win32-x64", "vendor", "x86_64-pc-windows-msvc", "bin", "codex.exe");
+
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         yield return Path.Combine(localAppData, "Programs", "OpenAI", "Codex", "bin", "codex.exe");
         yield return Path.Combine(localAppData, "OpenAI", "Codex", "bin", "codex.exe");

@@ -9,12 +9,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private static readonly TimeSpan HoverGracePeriod = TimeSpan.FromSeconds(8);
     private readonly NotifyIcon _notifyIcon;
     private readonly ContextMenuStrip _menu = new();
-    private readonly ToolStripMenuItem _profileItem = new("Profile & usage ↗");
-    private readonly ToolStripMenuItem _sessionItem = DisabledItem("Short window: loading...");
-    private readonly ToolStripMenuItem _weeklyItem = DisabledItem("Weekly: loading...");
-    private readonly ToolStripMenuItem _creditsItem = DisabledItem("Reset credits: loading...");
-    private readonly ToolStripMenuItem _usageItem = DisabledItem("Token usage: loading...");
-    private readonly ToolStripMenuItem _updatedItem = DisabledItem("Not refreshed yet");
     private readonly ToolStripMenuItem _refreshItem = new("Refresh now");
     private readonly ToolStripMenuItem _startupItem = new("Start with Windows") { CheckOnClick = false };
     private readonly System.Windows.Forms.Timer _refreshTimer;
@@ -41,16 +35,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         _notificationState = _notificationStateStore.Load();
         _menu.Items.AddRange([
-            _profileItem,
-            new ToolStripSeparator(),
-            _sessionItem,
-            _weeklyItem,
-            _creditsItem,
-            _usageItem,
-            new ToolStripSeparator(),
-            _updatedItem,
-            _refreshItem,
             _startupItem,
+            _refreshItem,
             new ToolStripSeparator(),
             new ToolStripMenuItem("Exit", null, (_, _) => ExitThread())
         ]);
@@ -59,7 +45,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _hoverForm.Hide();
             SyncStartupMenu();
         };
-        _profileItem.Click += (_, _) => Brand.OpenUrl(Brand.CodexUsageUrl);
         _refreshItem.Click += async (_, _) => await RefreshAsync(showFailureBalloon: true);
         _startupItem.Click += (_, _) => ToggleStartup();
 
@@ -67,7 +52,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _notifyIcon = new NotifyIcon
         {
             Icon = _currentIcon,
-            Text = "Codex: loading usage",
             Visible = true,
             ContextMenuStrip = _menu
         };
@@ -136,7 +120,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         _refreshing = true;
         _refreshItem.Enabled = false;
-        _updatedItem.Text = "Refreshing...";
         using var refreshCancellation = new CancellationTokenSource();
         _refreshCancellation = refreshCancellation;
         try
@@ -153,11 +136,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         catch (OperationCanceledException) when (_refreshGate.IsPaused)
         {
-            _updatedItem.Text = "Refresh paused while Windows is locked";
         }
         catch (Exception ex)
         {
-            ApplyError(ex.Message);
+            if (_lastSnapshot is null)
+            {
+                ReplaceIcon(null);
+            }
             if (showFailureBalloon && !_shownFailure)
             {
                 _shownFailure = true;
@@ -184,31 +169,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ApplySnapshot(CodexSnapshot snapshot)
     {
-        _profileItem.Text = string.IsNullOrWhiteSpace(snapshot.PlanType)
-            ? "Profile & usage ↗"
-            : $"Profile & usage · {snapshot.PlanType} ↗";
-        _profileItem.ToolTipText = snapshot.AccountDisplay ?? "Open official Codex usage analytics";
-        _sessionItem.Visible = snapshot.SessionWindow is not null;
-        _sessionItem.Text = DisplayFormatter.WindowLine("Short window", snapshot.SessionWindow, DateTimeOffset.Now);
-        _weeklyItem.Text = DisplayFormatter.WindowLine("Weekly", snapshot.WeeklyWindow, DateTimeOffset.Now);
-        _creditsItem.Text = DisplayFormatter.CreditsLine(snapshot.AvailableResetCredits);
-        _usageItem.Text = DisplayFormatter.UsageLine(snapshot.Usage);
-        _updatedItem.Text = $"Updated {snapshot.FetchedAt.LocalDateTime:t}";
-        _notifyIcon.Text = DisplayFormatter.BuildTooltip(snapshot);
         _hoverForm.UpdateSnapshot(snapshot);
         ReplaceIcon(snapshot.DisplayWindow?.RemainingPercent);
-    }
-
-    private void ApplyError(string message)
-    {
-        _updatedItem.Text = $"Refresh failed: {Shorten(message, 90)}";
-        _notifyIcon.Text = _lastSnapshot is null
-            ? "Codex: refresh failed"
-            : DisplayFormatter.BuildTooltip(_lastSnapshot) + " (stale)";
-        if (_lastSnapshot is null)
-        {
-            ReplaceIcon(null);
-        }
     }
 
     private void ReplaceIcon(double? remainingPercent)
@@ -325,7 +287,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _refreshTimer.Stop();
             _refreshCancellation?.Cancel();
             _refreshItem.Enabled = false;
-            _updatedItem.Text = "Refresh paused while Windows is locked";
             _hoverForm.Hide();
             return;
         }
@@ -366,8 +327,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
             MessageBox.Show(ex.Message, "Codex Tray", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
-
-    private static ToolStripMenuItem DisabledItem(string text) => new(text) { Enabled = false };
 
     private static string Shorten(string value, int length) =>
         value.Length <= length ? value : value[..Math.Max(0, length - 3)] + "...";
