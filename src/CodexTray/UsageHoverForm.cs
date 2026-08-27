@@ -1,10 +1,10 @@
 using CodexTray.Core;
+using System.Runtime.InteropServices;
 
 namespace CodexTray;
 
 internal sealed class UsageHoverForm : Form
 {
-    private readonly LinkLabel _profile = new();
     private readonly Label _session = DetailLabel();
     private readonly ProgressBar _sessionBar = UsageBar("Daily usage");
     private readonly Label _weekly = DetailLabel();
@@ -12,6 +12,12 @@ internal sealed class UsageHoverForm : Form
     private readonly Label _credits = DetailLabel();
     private readonly Label _usage = DetailLabel();
     private readonly Label _updated = DetailLabel(Color.FromArgb(148, 163, 184));
+    private readonly Button _pinButton = ActionButton("📌", "Pin window");
+    private readonly Button _closeButton = ActionButton("✕", "Close window");
+
+    public event EventHandler? PinnedChanged;
+
+    public bool IsPinned { get; private set; }
 
     public UsageHoverForm()
     {
@@ -29,14 +35,13 @@ internal sealed class UsageHoverForm : Form
         Text = "Codex Tray usage";
         TopMost = true;
 
-        _profile.AutoSize = true;
-        _profile.Font = new Font("Segoe UI Semibold", 10f, FontStyle.Regular, GraphicsUnit.Point);
-        _profile.LinkColor = Color.FromArgb(56, 189, 248);
-        _profile.ActiveLinkColor = Color.FromArgb(125, 211, 252);
-        _profile.VisitedLinkColor = _profile.LinkColor;
-        _profile.Margin = new Padding(0, 7, 0, 0);
-        _profile.Text = "Analytics ↗";
-        _profile.LinkClicked += (_, _) => Brand.OpenUrl(Brand.CodexUsageUrl);
+        _pinButton.Click += (_, _) => SetPinned(true);
+        _closeButton.Click += (_, _) =>
+        {
+            SetPinned(false);
+            Hide();
+        };
+        _closeButton.Visible = false;
 
         var panel = new TableLayoutPanel
         {
@@ -46,6 +51,18 @@ internal sealed class UsageHoverForm : Form
             ColumnCount = 1,
             Padding = new Padding(13, 11, 18, 12)
         };
+        var actions = new FlowLayoutPanel
+        {
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            FlowDirection = FlowDirection.RightToLeft,
+            Margin = new Padding(0, 0, 0, 4),
+            WrapContents = false
+        };
+        actions.Controls.Add(_pinButton);
+        actions.Controls.Add(_closeButton);
+        panel.Controls.Add(actions);
         panel.Controls.Add(_session);
         panel.Controls.Add(_sessionBar);
         panel.Controls.Add(_weekly);
@@ -53,8 +70,8 @@ internal sealed class UsageHoverForm : Form
         panel.Controls.Add(_credits);
         panel.Controls.Add(_usage);
         panel.Controls.Add(_updated);
-        panel.Controls.Add(_profile);
         Controls.Add(panel);
+        EnableDragging(panel);
     }
 
     protected override bool ShowWithoutActivation => true;
@@ -84,6 +101,11 @@ internal sealed class UsageHoverForm : Form
 
     public void ShowNear(Point anchor)
     {
+        if (IsPinned)
+        {
+            return;
+        }
+
         if (!Visible)
         {
             Show();
@@ -124,6 +146,55 @@ internal sealed class UsageHoverForm : Form
         Style = ProgressBarStyle.Continuous,
         Width = 320
     };
+
+    private static Button ActionButton(string text, string accessibleName) => new()
+    {
+        AccessibleName = accessibleName,
+        AutoSize = true,
+        Margin = Padding.Empty,
+        Text = text
+    };
+
+    private void SetPinned(bool pinned)
+    {
+        if (IsPinned == pinned)
+        {
+            return;
+        }
+
+        IsPinned = pinned;
+        _pinButton.Visible = !pinned;
+        _closeButton.Visible = pinned;
+        PinnedChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void EnableDragging(Control control)
+    {
+        if (control is not Button)
+        {
+            control.MouseDown += BeginDrag;
+        }
+
+        foreach (Control child in control.Controls)
+        {
+            EnableDragging(child);
+        }
+    }
+
+    private void BeginDrag(object? sender, MouseEventArgs args)
+    {
+        if (IsPinned && args.Button == MouseButtons.Left)
+        {
+            ReleaseCapture();
+            SendMessage(Handle, 0x00A1, 2, 0);
+        }
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll")]
+    private static extern nint SendMessage(nint window, int message, nint parameter, nint data);
 
     private static void SetWindow(
         Label label,

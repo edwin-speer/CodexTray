@@ -6,9 +6,11 @@ namespace CodexTray;
 internal sealed class TrayApplicationContext : ApplicationContext
 {
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan PinnedRefreshInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan HoverGracePeriod = TimeSpan.FromSeconds(8);
     private readonly NotifyIcon _notifyIcon;
     private readonly ContextMenuStrip _menu = new();
+    private readonly ToolStripMenuItem _analyticsItem = new("Analytics ↗");
     private readonly ToolStripMenuItem _refreshItem = new("Refresh now");
     private readonly ToolStripMenuItem _startupItem = new("Start with Windows") { CheckOnClick = false };
     private readonly System.Windows.Forms.Timer _refreshTimer;
@@ -35,6 +37,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         _notificationState = _notificationStateStore.Load();
         _menu.Items.AddRange([
+            _analyticsItem,
+            new ToolStripSeparator(),
             _startupItem,
             _refreshItem,
             new ToolStripSeparator(),
@@ -42,9 +46,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         ]);
         _menu.Opening += (_, _) =>
         {
-            _hoverForm.Hide();
+            if (!_hoverForm.IsPinned)
+            {
+                _hoverForm.Hide();
+            }
             SyncStartupMenu();
         };
+        _analyticsItem.Click += (_, _) => Brand.OpenUrl(Brand.CodexUsageUrl);
         _refreshItem.Click += async (_, _) => await RefreshAsync(showFailureBalloon: true);
         _startupItem.Click += (_, _) => ToggleStartup();
 
@@ -59,6 +67,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         _refreshTimer = new System.Windows.Forms.Timer { Interval = (int)RefreshInterval.TotalMilliseconds };
         _refreshTimer.Tick += async (_, _) => await RefreshAsync(showFailureBalloon: false);
+        _hoverForm.PinnedChanged += (_, _) => OnPinnedChanged();
         _refreshTimer.Start();
 
         _hoverTimer = new System.Windows.Forms.Timer { Interval = 200 };
@@ -233,7 +242,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void HideHoverCardWhenPointerLeaves()
     {
-        if (_keepHoverOpenForTest || !_hoverForm.Visible || _hoverForm.ContainsCursor || PointerStillOnTrayIcon())
+        if (_keepHoverOpenForTest || _hoverForm.IsPinned || !_hoverForm.Visible
+            || _hoverForm.ContainsCursor || PointerStillOnTrayIcon())
         {
             return;
         }
@@ -293,6 +303,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         _refreshTimer.Start();
         _refreshItem.Enabled = true;
+        if (_hoverForm.IsPinned)
+        {
+            _hoverForm.Show();
+        }
         if (_refreshing)
         {
             _refreshAfterCurrent = true;
@@ -312,6 +326,29 @@ internal sealed class TrayApplicationContext : ApplicationContext
         catch
         {
             _startupItem.Checked = false;
+        }
+    }
+
+    private void OnPinnedChanged()
+    {
+        _refreshTimer.Interval = (int)(_hoverForm.IsPinned ? PinnedRefreshInterval : RefreshInterval).TotalMilliseconds;
+        if (_refreshGate.IsPaused)
+        {
+            return;
+        }
+
+        _refreshTimer.Stop();
+        _refreshTimer.Start();
+        if (_hoverForm.IsPinned)
+        {
+            if (_refreshing)
+            {
+                _refreshAfterCurrent = true;
+            }
+            else
+            {
+                _ = RefreshAsync(showFailureBalloon: false);
+            }
         }
     }
 
