@@ -49,7 +49,7 @@ static void FormatsBarHeading()
 {
     var now = new DateTimeOffset(2026, 8, 26, 12, 0, 0, TimeSpan.Zero);
     var window = new LimitWindow(25, 300, now.AddHours(1));
-    Equal("Daily: 25% · resets in 1h 0m", DisplayFormatter.WindowLine("Daily", window, now), "bar heading");
+    Equal("Daily: 75% left · resets in 1h 0m", DisplayFormatter.WindowLine("Daily", window, now), "bar heading");
 }
 
 static void DetectsWeeklyReset()
