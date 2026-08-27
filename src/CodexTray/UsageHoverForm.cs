@@ -6,12 +6,10 @@ namespace CodexTray;
 internal sealed class UsageHoverForm : Form
 {
     private readonly Label _session = DetailLabel();
-    private readonly ProgressBar _sessionBar = UsageBar("Daily usage");
+    private readonly UsageBar _sessionBar = new("Daily usage");
     private readonly Label _weekly = DetailLabel();
-    private readonly ProgressBar _weeklyBar = UsageBar("Weekly usage");
+    private readonly UsageBar _weeklyBar = new("Weekly usage");
     private readonly Label _credits = DetailLabel();
-    private readonly Label _usage = DetailLabel();
-    private readonly Label _updated = DetailLabel(Color.FromArgb(148, 163, 184));
     private readonly Button _pinButton = ActionButton("📌", "Pin window");
     private readonly Button _closeButton = ActionButton("✕", "Close window");
 
@@ -68,8 +66,6 @@ internal sealed class UsageHoverForm : Form
         panel.Controls.Add(_weekly);
         panel.Controls.Add(_weeklyBar);
         panel.Controls.Add(_credits);
-        panel.Controls.Add(_usage);
-        panel.Controls.Add(_updated);
         Controls.Add(panel);
         EnableDragging(panel);
     }
@@ -95,8 +91,6 @@ internal sealed class UsageHoverForm : Form
         SetWindow(_session, _sessionBar, "Daily", snapshot.SessionWindow, now);
         SetWindow(_weekly, _weeklyBar, "Weekly", snapshot.WeeklyWindow, now);
         _credits.Text = DisplayFormatter.CreditsLine(snapshot.AvailableResetCredits);
-        _usage.Text = DisplayFormatter.UsageLine(snapshot.Usage);
-        _updated.Text = $"Updated {snapshot.FetchedAt.LocalDateTime:t}";
     }
 
     public void ShowNear(Point anchor)
@@ -137,22 +131,15 @@ internal sealed class UsageHoverForm : Form
         MaximumSize = new Size(460, 0)
     };
 
-    private static ProgressBar UsageBar(string accessibleName) => new()
-    {
-        AccessibleName = accessibleName,
-        Height = 12,
-        Margin = new Padding(0, 0, 0, 7),
-        Maximum = 100,
-        Style = ProgressBarStyle.Continuous,
-        Width = 320
-    };
-
     private static Button ActionButton(string text, string accessibleName) => new()
     {
         AccessibleName = accessibleName,
-        AutoSize = true,
+        AutoSize = false,
+        FlatAppearance = { BorderSize = 0 },
+        FlatStyle = FlatStyle.Flat,
         Margin = Padding.Empty,
-        Text = text
+        Text = text,
+        Width = 24
     };
 
     private void SetPinned(bool pinned)
@@ -198,7 +185,7 @@ internal sealed class UsageHoverForm : Form
 
     private static void SetWindow(
         Label label,
-        ProgressBar bar,
+        UsageBar bar,
         string name,
         LimitWindow? window,
         DateTimeOffset now)
@@ -209,7 +196,39 @@ internal sealed class UsageHoverForm : Form
             return;
         }
 
-        label.Text = DisplayFormatter.WindowLine(name, window, now, showPercentages: false);
+        label.Text = DisplayFormatter.WindowLine(name, window, now);
         bar.Value = (int)Math.Round(Math.Clamp(window.UsedPercent, 0d, 100d));
+    }
+}
+
+internal sealed class UsageBar : Control
+{
+    private int _value;
+
+    public UsageBar(string accessibleName)
+    {
+        AccessibleName = accessibleName;
+        AccessibleRole = AccessibleRole.ProgressBar;
+        DoubleBuffered = true;
+        Height = 12;
+        Margin = new Padding(0, 0, 0, 7);
+        Width = 320;
+    }
+
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public int Value
+    {
+        get => _value;
+        set
+        {
+            _value = Math.Clamp(value, 0, 100);
+            Invalidate();
+        }
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        e.Graphics.Clear(Color.FromArgb(51, 65, 85));
+        e.Graphics.FillRectangle(Brushes.DodgerBlue, 0, 0, Width * _value / 100, Height);
     }
 }

@@ -4,21 +4,18 @@ namespace CodexTray.Core;
 
 public static class DisplayFormatter
 {
-    public static string WindowLine(string label, LimitWindow? window, DateTimeOffset now, bool showPercentages = true)
+    public static string WindowLine(string label, LimitWindow? window, DateTimeOffset now)
     {
         if (window is null)
         {
             return $"{label}: unavailable";
         }
 
-        var remaining = Math.Round(window.RemainingPercent);
         var used = Math.Round(window.UsedPercent);
         var reset = window.ResetsAt is { } resetsAt
             ? $" · resets {Countdown(resetsAt, now)}"
             : string.Empty;
-        return showPercentages
-            ? $"{label}: {remaining:0}% left ({used:0}% used){reset}"
-            : $"{label}{reset}";
+        return $"{label}: {used:0}%{reset}";
     }
 
     public static string CompactNumber(long value)

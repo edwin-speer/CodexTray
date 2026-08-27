@@ -233,9 +233,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         _lastTrayMouseMove = DateTimeOffset.UtcNow;
         _lastTrayMousePosition = Cursor.Position;
-        _hoverForm.UpdateSnapshot(_lastSnapshot);
         if (!_hoverForm.Visible)
         {
+            _hoverForm.UpdateSnapshot(_lastSnapshot);
             _hoverForm.ShowNear(Cursor.Position);
         }
     }
