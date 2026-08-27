@@ -1,4 +1,5 @@
 using CodexTray.Core;
+using Microsoft.Win32;
 using System.Runtime.InteropServices;
 
 namespace CodexTray;
@@ -12,6 +13,7 @@ internal sealed class UsageHoverForm : Form
     private readonly Label _credits = DetailLabel();
     private readonly Button _pinButton = ActionButton("📌", "Pin window");
     private readonly Button _closeButton = ActionButton("✕", "Close window");
+    private Color _borderColor;
 
     public event EventHandler? PinnedChanged;
 
@@ -68,6 +70,7 @@ internal sealed class UsageHoverForm : Form
         panel.Controls.Add(_credits);
         Controls.Add(panel);
         EnableDragging(panel);
+        ApplyTheme();
     }
 
     protected override bool ShowWithoutActivation => true;
@@ -102,6 +105,7 @@ internal sealed class UsageHoverForm : Form
 
         if (!Visible)
         {
+            ApplyTheme();
             Show();
         }
 
@@ -118,8 +122,17 @@ internal sealed class UsageHoverForm : Form
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
-        using var border = new Pen(Color.FromArgb(71, 85, 105));
+        using var border = new Pen(_borderColor);
         e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+    }
+
+    protected override void WndProc(ref Message message)
+    {
+        base.WndProc(ref message);
+        if (message.Msg == 0x001A)
+        {
+            ApplyTheme();
+        }
     }
 
     private static Label DetailLabel(Color? color = null) => new()
@@ -141,6 +154,36 @@ internal sealed class UsageHoverForm : Form
         Text = text,
         Width = 24
     };
+
+    private void ApplyTheme()
+    {
+        var light = Registry.GetValue(
+            @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+            "AppsUseLightTheme",
+            1) is not 0;
+        var background = light ? Color.White : Color.Black;
+        var foreground = light ? Color.Black : Color.White;
+
+        ApplyColors(this, background, foreground);
+        _borderColor = light ? Color.LightGray : Color.DimGray;
+        _sessionBar.BackColor = _weeklyBar.BackColor = light ? Color.Gainsboro : Color.FromArgb(48, 48, 48);
+        _sessionBar.ForeColor = _weeklyBar.ForeColor = Color.DodgerBlue;
+        Invalidate(true);
+    }
+
+    private static void ApplyColors(Control control, Color background, Color foreground)
+    {
+        if (control is not UsageBar)
+        {
+            control.BackColor = background;
+            control.ForeColor = foreground;
+        }
+
+        foreach (Control child in control.Controls)
+        {
+            ApplyColors(child, background, foreground);
+        }
+    }
 
     private void SetPinned(bool pinned)
     {
@@ -228,7 +271,8 @@ internal sealed class UsageBar : Control
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        e.Graphics.Clear(Color.FromArgb(51, 65, 85));
-        e.Graphics.FillRectangle(Brushes.DodgerBlue, 0, 0, Width * _value / 100, Height);
+        e.Graphics.Clear(BackColor);
+        using var fill = new SolidBrush(ForeColor);
+        e.Graphics.FillRectangle(fill, 0, 0, Width * _value / 100, Height);
     }
 }
