@@ -14,7 +14,7 @@ public static class UsageBandSelector
     {
         null => UsageBand.Unknown,
         > 50d => UsageBand.Green,
-        > 20d => UsageBand.Amber,
-        _ => UsageBand.Red
+        < 20d => UsageBand.Red,
+        _ => UsageBand.Amber
     };
 }

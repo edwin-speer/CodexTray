@@ -1,5 +1,6 @@
 using CodexTray.Core;
 using Microsoft.Win32;
+using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 
 namespace CodexTray;
@@ -7,9 +8,9 @@ namespace CodexTray;
 internal sealed class UsageHoverForm : Form
 {
     private readonly Label _session = DetailLabel();
-    private readonly UsageBar _sessionBar = new("Daily usage");
+    private readonly UsageRing _sessionRing = new("Daily usage");
     private readonly Label _weekly = DetailLabel();
-    private readonly UsageBar _weeklyBar = new("Weekly usage");
+    private readonly UsageRing _weeklyRing = new("Weekly usage");
     private readonly Label _credits = DetailLabel();
     private readonly Button _pinButton = ActionButton("📌", "Pin window");
     private readonly Button _closeButton = ActionButton("✕", "Close window");
@@ -63,10 +64,16 @@ internal sealed class UsageHoverForm : Form
         actions.Controls.Add(_pinButton);
         actions.Controls.Add(_closeButton);
         panel.Controls.Add(actions);
-        panel.Controls.Add(_session);
-        panel.Controls.Add(_sessionBar);
-        panel.Controls.Add(_weekly);
-        panel.Controls.Add(_weeklyBar);
+        var gauges = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Margin = Padding.Empty,
+            WrapContents = false
+        };
+        gauges.Controls.Add(Gauge(_sessionRing, _session));
+        gauges.Controls.Add(Gauge(_weeklyRing, _weekly));
+        panel.Controls.Add(gauges);
         panel.Controls.Add(_credits);
         Controls.Add(panel);
         EnableDragging(panel);
@@ -91,8 +98,8 @@ internal sealed class UsageHoverForm : Form
     public void UpdateSnapshot(CodexSnapshot snapshot)
     {
         var now = DateTimeOffset.Now;
-        SetWindow(_session, _sessionBar, "Daily", snapshot.SessionWindow, now);
-        SetWindow(_weekly, _weeklyBar, "Weekly", snapshot.WeeklyWindow, now);
+        SetWindow(_session, _sessionRing, "Daily", snapshot.SessionWindow, now);
+        SetWindow(_weekly, _weeklyRing, "Weekly", snapshot.WeeklyWindow, now);
         _credits.Text = DisplayFormatter.CreditsLine(snapshot.AvailableResetCredits);
     }
 
@@ -155,6 +162,25 @@ internal sealed class UsageHoverForm : Form
         Width = 24
     };
 
+    private static Control Gauge(UsageRing ring, Label label)
+    {
+        label.AutoSize = false;
+        label.Size = new Size(145, 38);
+        label.TextAlign = ContentAlignment.TopCenter;
+
+        var panel = new TableLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            Margin = new Padding(0, 0, 10, 4)
+        };
+        ring.Anchor = AnchorStyles.None;
+        panel.Controls.Add(ring);
+        panel.Controls.Add(label);
+        return panel;
+    }
+
     private void ApplyTheme()
     {
         var light = Registry.GetValue(
@@ -166,18 +192,13 @@ internal sealed class UsageHoverForm : Form
 
         ApplyColors(this, background, foreground);
         _borderColor = light ? Color.LightGray : Color.DimGray;
-        _sessionBar.BackColor = _weeklyBar.BackColor = light ? Color.Gainsboro : Color.FromArgb(48, 48, 48);
-        _sessionBar.ForeColor = _weeklyBar.ForeColor = Color.DodgerBlue;
         Invalidate(true);
     }
 
     private static void ApplyColors(Control control, Color background, Color foreground)
     {
-        if (control is not UsageBar)
-        {
-            control.BackColor = background;
-            control.ForeColor = foreground;
-        }
+        control.BackColor = background;
+        control.ForeColor = foreground;
 
         foreach (Control child in control.Controls)
         {
@@ -228,34 +249,34 @@ internal sealed class UsageHoverForm : Form
 
     private static void SetWindow(
         Label label,
-        UsageBar bar,
+        UsageRing ring,
         string name,
         LimitWindow? window,
         DateTimeOffset now)
     {
-        label.Visible = bar.Visible = window is not null;
+        label.Visible = ring.Visible = window is not null;
         if (window is null)
         {
             return;
         }
 
         label.Text = DisplayFormatter.WindowLine(name, window, now);
-        bar.Value = (int)Math.Round(Math.Clamp(window.UsedPercent, 0d, 100d));
+        ring.Value = (int)Math.Round(Math.Clamp(window.UsedPercent, 0d, 100d));
     }
 }
 
-internal sealed class UsageBar : Control
+internal sealed class UsageRing : Control
 {
     private int _value;
 
-    public UsageBar(string accessibleName)
+    public UsageRing(string accessibleName)
     {
         AccessibleName = accessibleName;
         AccessibleRole = AccessibleRole.ProgressBar;
         DoubleBuffered = true;
-        Height = 12;
-        Margin = new Padding(0, 0, 0, 7);
-        Width = 320;
+        Font = new Font("Segoe UI", 14f, FontStyle.Bold, GraphicsUnit.Point);
+        Margin = new Padding(0, 0, 0, 6);
+        Size = new Size(76, 76);
     }
 
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -272,7 +293,25 @@ internal sealed class UsageBar : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         e.Graphics.Clear(BackColor);
-        using var fill = new SolidBrush(ForeColor);
-        e.Graphics.FillRectangle(fill, 0, 0, Width * _value / 100, Height);
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        var bounds = new Rectangle(6, 6, Width - 13, Height - 13);
+        var ringColor = UsageBandSelector.Select(100 - _value) switch
+        {
+            UsageBand.Green => Color.FromArgb(34, 197, 94),
+            UsageBand.Amber => Color.FromArgb(245, 158, 11),
+            UsageBand.Red => Color.FromArgb(239, 68, 68),
+            _ => Color.Gray
+        };
+        using var tint = new SolidBrush(Color.FromArgb(28, ringColor));
+        using var track = new Pen(BackColor.GetBrightness() > 0.5f ? Color.FromArgb(229, 231, 235) : Color.FromArgb(55, 65, 81), 5f);
+        using var progress = new Pen(ringColor, 5f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        e.Graphics.FillEllipse(tint, bounds);
+        e.Graphics.DrawEllipse(track, bounds);
+        if (_value > 0)
+        {
+            e.Graphics.DrawArc(progress, bounds, -90f, 360f * _value / 100f);
+        }
+        TextRenderer.DrawText(e.Graphics, _value.ToString(), Font, ClientRectangle, ringColor,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
     }
 }

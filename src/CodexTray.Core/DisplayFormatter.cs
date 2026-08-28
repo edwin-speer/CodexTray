@@ -11,11 +11,10 @@ public static class DisplayFormatter
             return $"{label}: unavailable";
         }
 
-        var remaining = Math.Round(window.RemainingPercent);
         var reset = window.ResetsAt is { } resetsAt
             ? $" · resets {Countdown(resetsAt, now)}"
             : string.Empty;
-        return $"{label}: {remaining:0}% left{reset}";
+        return $"{label}{reset}";
     }
 
     public static string CompactNumber(long value)
