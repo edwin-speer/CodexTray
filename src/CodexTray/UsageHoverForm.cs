@@ -142,6 +142,14 @@ internal sealed class UsageHoverForm : Form
         }
     }
 
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        const int windowCornerPreference = 33;
+        var rounded = 2;
+        DwmSetWindowAttribute(Handle, windowCornerPreference, ref rounded, sizeof(int));
+    }
+
     private static Label DetailLabel(Color? color = null) => new()
     {
         AutoSize = true,
@@ -246,6 +254,9 @@ internal sealed class UsageHoverForm : Form
 
     [DllImport("user32.dll")]
     private static extern nint SendMessage(nint window, int message, nint parameter, nint data);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(nint window, int attribute, ref int value, int size);
 
     private static void SetWindow(
         Label label,
