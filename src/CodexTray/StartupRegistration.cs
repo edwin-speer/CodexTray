@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using System.Reflection;
 
 namespace CodexTray;
 
@@ -9,15 +10,9 @@ internal static class StartupRegistration
 
     public static bool IsEnabled()
     {
-        var executable = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(executable))
-        {
-            return false;
-        }
-
         using var key = Registry.CurrentUser.OpenSubKey(KeyPath, writable: false);
         return key?.GetValue(ValueName) is string value
-               && string.Equals(value.Trim(), $"\"{executable}\"", StringComparison.OrdinalIgnoreCase);
+               && string.Equals(value.Trim(), GetStartupCommand(), StringComparison.OrdinalIgnoreCase);
     }
 
     public static void SetEnabled(bool enabled)
@@ -26,13 +21,29 @@ internal static class StartupRegistration
                         ?? throw new InvalidOperationException("Could not open the current-user startup registry key.");
         if (enabled)
         {
-            var executable = Environment.ProcessPath
-                             ?? throw new InvalidOperationException("Could not determine the Codex Tray executable path.");
-            key.SetValue(ValueName, $"\"{executable}\"");
+            key.SetValue(ValueName, GetStartupCommand());
         }
         else
         {
             key.DeleteValue(ValueName, throwOnMissingValue: false);
         }
+    }
+
+    private static string GetStartupCommand()
+    {
+        var executable = Environment.ProcessPath
+                         ?? throw new InvalidOperationException("Could not determine the Codex Tray executable path.");
+        if (!string.Equals(Path.GetFileNameWithoutExtension(executable), "dotnet", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"\"{executable}\"";
+        }
+
+        var assembly = Assembly.GetEntryAssembly()?.Location;
+        if (string.IsNullOrWhiteSpace(assembly))
+        {
+            throw new InvalidOperationException("Could not determine the Codex Tray assembly path.");
+        }
+
+        return $"\"{executable}\" \"{assembly}\"";
     }
 }
