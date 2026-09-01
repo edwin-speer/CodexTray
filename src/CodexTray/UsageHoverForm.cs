@@ -12,6 +12,14 @@ internal sealed class UsageHoverForm : Form
     private readonly Label _weekly = DetailLabel();
     private readonly UsageRing _weeklyRing = new("Weekly usage");
     private readonly Label _credits = DetailLabel();
+    private readonly Panel _creditsFooter = new()
+    {
+        AutoSize = true,
+        AutoSizeMode = AutoSizeMode.GrowAndShrink,
+        Dock = DockStyle.Fill,
+        Margin = Padding.Empty,
+        Padding = Padding.Empty
+    };
     private readonly Button _pinButton = ActionButton("📌", "Pin window");
     private readonly Button _closeButton = ActionButton("✕", "Close window");
     private Color _borderColor;
@@ -44,13 +52,14 @@ internal sealed class UsageHoverForm : Form
         };
         _closeButton.Visible = false;
 
-        var panel = new TableLayoutPanel
+        var content = new TableLayoutPanel
         {
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             BackColor = BackColor,
             ColumnCount = 1,
-            Padding = new Padding(13, 11, 18, 12)
+            Margin = Padding.Empty,
+            Padding = new Padding(13, 11, 18, 0)
         };
         var actions = new FlowLayoutPanel
         {
@@ -63,7 +72,7 @@ internal sealed class UsageHoverForm : Form
         };
         actions.Controls.Add(_pinButton);
         actions.Controls.Add(_closeButton);
-        panel.Controls.Add(actions);
+        content.Controls.Add(actions);
         var gauges = new FlowLayoutPanel
         {
             AutoSize = true,
@@ -73,10 +82,23 @@ internal sealed class UsageHoverForm : Form
         };
         gauges.Controls.Add(Gauge(_sessionRing, _session));
         gauges.Controls.Add(Gauge(_weeklyRing, _weekly));
-        panel.Controls.Add(gauges);
-        panel.Controls.Add(_credits);
-        Controls.Add(panel);
-        EnableDragging(panel);
+        content.Controls.Add(gauges);
+        _credits.Margin = Padding.Empty;
+        _credits.Padding = new Padding(24, 8, 18, 8);
+        _creditsFooter.Controls.Add(_credits);
+
+        var layout = new TableLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = BackColor,
+            ColumnCount = 1,
+            Margin = Padding.Empty
+        };
+        layout.Controls.Add(content);
+        layout.Controls.Add(_creditsFooter);
+        Controls.Add(layout);
+        EnableDragging(layout);
         ApplyTheme();
     }
 
@@ -194,6 +216,9 @@ internal sealed class UsageHoverForm : Form
         if (SystemInformation.HighContrast)
         {
             ApplyColors(this, SystemColors.Window, SystemColors.WindowText);
+            _creditsFooter.BackColor = SystemColors.Window;
+            _credits.BackColor = SystemColors.Window;
+            _credits.ForeColor = SystemColors.WindowText;
             _borderColor = SystemColors.WindowFrame;
             Invalidate(true);
             return;
@@ -205,8 +230,12 @@ internal sealed class UsageHoverForm : Form
             1) is not 0;
         var background = light ? Color.White : Color.Black;
         var foreground = light ? Color.Black : Color.White;
+        var footerBackground = light ? Color.FromArgb(229, 231, 235) : Color.FromArgb(55, 65, 81);
+        var footerForeground = light ? Color.FromArgb(31, 41, 55) : Color.FromArgb(241, 245, 249);
 
         ApplyColors(this, background, foreground);
+        _creditsFooter.BackColor = _credits.BackColor = footerBackground;
+        _credits.ForeColor = footerForeground;
         _borderColor = light ? Color.LightGray : Color.DimGray;
         Invalidate(true);
     }
