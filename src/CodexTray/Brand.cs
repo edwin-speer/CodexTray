@@ -18,8 +18,4 @@ internal static class Brand
             MessageBox.Show(ex.Message, "Codex Tray", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
-
-    public static Icon LoadApplicationIcon() =>
-        Icon.ExtractAssociatedIcon(Application.ExecutablePath)
-        ?? (Icon)SystemIcons.Application.Clone();
 }

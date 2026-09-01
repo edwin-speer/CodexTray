@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace CodexTray.Core;
 
 public static class DisplayFormatter
@@ -17,39 +15,9 @@ public static class DisplayFormatter
         return $"{label}{reset}";
     }
 
-    public static string CompactNumber(long value)
-    {
-        return value switch
-        {
-            >= 1_000_000_000 => $"{value / 1_000_000_000d:0.#}B",
-            >= 1_000_000 => $"{value / 1_000_000d:0.#}M",
-            >= 1_000 => $"{value / 1_000d:0.#}K",
-            _ => value.ToString(CultureInfo.InvariantCulture)
-        };
-    }
-
     public static string CreditsLine(int? availableResetCredits) => availableResetCredits is { } credits
         ? $"Reset credits: {credits}"
         : "Reset credits: not reported";
-
-    public static string UsageLine(UsageSummary? usage)
-    {
-        if (usage is null)
-        {
-            return "Token usage: not reported";
-        }
-
-        var parts = new List<string>();
-        if (usage.TodayTokens is { } today)
-        {
-            parts.Add($"today {CompactNumber(today)}");
-        }
-        if (usage.LifetimeTokens is { } lifetime)
-        {
-            parts.Add($"lifetime {CompactNumber(lifetime)}");
-        }
-        return parts.Count == 0 ? "Token usage: not reported" : $"Tokens: {string.Join(" · ", parts)}";
-    }
 
     private static string Countdown(DateTimeOffset target, DateTimeOffset now)
     {

@@ -191,6 +191,14 @@ internal sealed class UsageHoverForm : Form
 
     private void ApplyTheme()
     {
+        if (SystemInformation.HighContrast)
+        {
+            ApplyColors(this, SystemColors.Window, SystemColors.WindowText);
+            _borderColor = SystemColors.WindowFrame;
+            Invalidate(true);
+            return;
+        }
+
         var light = Registry.GetValue(
             @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
             "AppsUseLightTheme",
@@ -297,6 +305,8 @@ internal sealed class UsageRing : Control
         set
         {
             _value = Math.Clamp(value, 0, 100);
+            AccessibleDescription = $"{_value}% used";
+            AccessibilityNotifyClients(AccessibleEvents.ValueChange, -1);
             Invalidate();
         }
     }
@@ -306,7 +316,7 @@ internal sealed class UsageRing : Control
         e.Graphics.Clear(BackColor);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         var bounds = new Rectangle(6, 6, Width - 13, Height - 13);
-        var ringColor = UsageBandSelector.Select(100 - _value) switch
+        var ringColor = SystemInformation.HighContrast ? ForeColor : UsageBandSelector.Select(100 - _value) switch
         {
             UsageBand.Green => Color.FromArgb(34, 197, 94),
             UsageBand.Amber => Color.FromArgb(245, 158, 11),

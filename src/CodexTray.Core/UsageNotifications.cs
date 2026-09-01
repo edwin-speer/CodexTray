@@ -3,12 +3,10 @@ namespace CodexTray.Core;
 public sealed record UsageNotification(string Title, string Message);
 
 public sealed record NotificationState(
-    double? WeeklyUsedPercent,
     DateTimeOffset? WeeklyResetsAt,
     int? AvailableResetCredits)
 {
     public static NotificationState FromSnapshot(CodexSnapshot snapshot) => new(
-        snapshot.WeeklyWindow?.UsedPercent,
         snapshot.WeeklyWindow?.ResetsAt,
         snapshot.AvailableResetCredits);
 }

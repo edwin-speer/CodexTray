@@ -34,12 +34,23 @@ internal sealed class NotificationStateStore
 
     public void Save(NotificationState state)
     {
-        var directory = Path.GetDirectoryName(_path)
-                        ?? throw new InvalidOperationException("Notification state path has no parent directory.");
-        Directory.CreateDirectory(directory);
-        var temporary = _path + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(state));
-        File.Move(temporary, _path, overwrite: true);
+        try
+        {
+            var directory = Path.GetDirectoryName(_path)
+                            ?? throw new InvalidOperationException("Notification state path has no parent directory.");
+            Directory.CreateDirectory(directory);
+            var temporary = _path + ".tmp";
+            File.WriteAllText(temporary, JsonSerializer.Serialize(state));
+            File.Move(temporary, _path, overwrite: true);
+        }
+        catch (IOException)
+        {
+            // Notification history is optional; never hide fresh usage data because it cannot be saved.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Notification history is optional; never hide fresh usage data because it cannot be saved.
+        }
     }
 }
 

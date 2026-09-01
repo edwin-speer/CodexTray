@@ -19,16 +19,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly NotificationStateStore _notificationStateStore = new();
     private readonly UsageHoverForm _hoverForm = new();
     private readonly Control _dispatcher = new();
-    private readonly SessionRefreshGate _refreshGate = new();
     private CodexAppServerClient? _client;
     private CodexSnapshot? _lastSnapshot;
     private NotificationState? _notificationState;
-    private ResetNotificationForm? _notificationForm;
     private CancellationTokenSource? _refreshCancellation;
     private Icon? _currentIcon;
     private DateTimeOffset _lastTrayMouseMove = DateTimeOffset.MinValue;
     private Point _lastTrayMousePosition = Point.Empty;
     private bool _refreshing;
+    private bool _refreshPaused;
     private bool _refreshAfterCurrent;
     private bool _shownFailure;
     private bool _keepHoverOpenForTest;
@@ -64,6 +63,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ContextMenuStrip = _menu
         };
         _notifyIcon.MouseMove += (_, _) => ShowHoverCard();
+        _notifyIcon.MouseClick += (_, args) =>
+        {
+            if (args.Button == MouseButtons.Left)
+            {
+                ShowHoverCard();
+            }
+        };
+        _notifyIcon.Text = "Codex Tray usage";
 
         _refreshTimer = new System.Windows.Forms.Timer { Interval = (int)RefreshInterval.TotalMilliseconds };
         _refreshTimer.Tick += async (_, _) => await RefreshAsync(showFailureBalloon: false);
@@ -72,7 +79,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         _hoverTimer = new System.Windows.Forms.Timer { Interval = 200 };
         _hoverTimer.Tick += (_, _) => HideHoverCardWhenPointerLeaves();
-        _hoverTimer.Start();
 
         _initialTimer = new System.Windows.Forms.Timer { Interval = 150 };
         _initialTimer.Tick += async (_, _) =>
@@ -105,7 +111,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _refreshTimer.Stop();
         _hoverTimer.Stop();
         _hoverForm.Close();
-        _notificationForm?.Close();
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
         _currentIcon?.Dispose();
@@ -113,7 +118,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _refreshTimer.Dispose();
         _hoverTimer.Dispose();
         _hoverForm.Dispose();
-        _notificationForm?.Dispose();
         _refreshCancellation?.Dispose();
         _dispatcher.Dispose();
         _menu.Dispose();
@@ -122,7 +126,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private async Task RefreshAsync(bool showFailureBalloon)
     {
-        if (_refreshing || _refreshGate.IsPaused)
+        if (_refreshing || _refreshPaused)
         {
             return;
         }
@@ -138,12 +142,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var notifications = UsageNotificationDetector.Detect(_notificationState, snapshot);
             _lastSnapshot = snapshot;
             _notificationState = NotificationState.FromSnapshot(snapshot);
-            _notificationStateStore.Save(_notificationState);
             _shownFailure = false;
             ApplySnapshot(snapshot);
+            _notificationStateStore.Save(_notificationState);
             ShowUsageNotifications(notifications);
         }
-        catch (OperationCanceledException) when (_refreshGate.IsPaused)
+        catch (OperationCanceledException)
         {
         }
         catch (Exception ex)
@@ -167,8 +171,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _refreshCancellation = null;
             }
             _refreshing = false;
-            _refreshItem.Enabled = !_refreshGate.IsPaused;
-            if (_refreshAfterCurrent && !_refreshGate.IsPaused)
+            _refreshItem.Enabled = !_refreshPaused;
+            if (_refreshAfterCurrent && !_refreshPaused)
             {
                 _refreshAfterCurrent = false;
                 _ = RefreshAsync(showFailureBalloon: false);
@@ -204,18 +208,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _notifyIcon.BalloonTipText = string.Join(Environment.NewLine, notifications.Select(item => item.Message));
         _notifyIcon.ShowBalloonTip(8000);
 
-        _notificationForm?.Close();
-        var form = new ResetNotificationForm(notifications);
-        _notificationForm = form;
-        form.FormClosed += (_, _) =>
-        {
-            if (ReferenceEquals(_notificationForm, form))
-            {
-                _notificationForm = null;
-            }
-        };
-        form.Show();
-        form.Activate();
     }
 
     private void ShowTestNotification() => ShowUsageNotifications([
@@ -226,7 +218,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowHoverCard()
     {
-        if (_refreshGate.IsPaused || _lastSnapshot is null || _menu.Visible)
+        if (_refreshPaused || _lastSnapshot is null || _menu.Visible)
         {
             return;
         }
@@ -238,12 +230,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _hoverForm.UpdateSnapshot(_lastSnapshot);
             _hoverForm.ShowNear(Cursor.Position);
         }
+        _hoverTimer.Start();
     }
 
     private void HideHoverCardWhenPointerLeaves()
     {
-        if (_keepHoverOpenForTest || _hoverForm.IsPinned || !_hoverForm.Visible
-            || _hoverForm.ContainsCursor || PointerStillOnTrayIcon())
+        if (_keepHoverOpenForTest || _hoverForm.IsPinned || !_hoverForm.Visible)
+        {
+            _hoverTimer.Stop();
+            return;
+        }
+
+        if (_hoverForm.ContainsCursor || PointerStillOnTrayIcon())
         {
             return;
         }
@@ -286,11 +284,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void SetSessionLocked(bool locked)
     {
-        var changed = locked ? _refreshGate.Pause() : _refreshGate.Resume();
-        if (!changed)
+        if (_refreshPaused == locked)
         {
             return;
         }
+
+        _refreshPaused = locked;
 
         if (locked)
         {
@@ -298,6 +297,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _refreshCancellation?.Cancel();
             _refreshItem.Enabled = false;
             _hoverForm.Hide();
+            _hoverTimer.Stop();
             return;
         }
 
@@ -332,7 +332,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void OnPinnedChanged()
     {
         _refreshTimer.Interval = (int)(_hoverForm.IsPinned ? PinnedRefreshInterval : RefreshInterval).TotalMilliseconds;
-        if (_refreshGate.IsPaused)
+        if (_refreshPaused)
         {
             return;
         }

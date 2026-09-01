@@ -11,7 +11,7 @@ Run("detects an unused weekly reset", DetectsUnusedWeeklyReset, failures);
 Run("detects a new reset credit", DetectsNewResetCredit, failures);
 Run("does not duplicate a weekly-only window", DoesNotDuplicateWeeklyOnlyWindow, failures);
 Run("maps tray usage colors", MapsTrayUsageColors, failures);
-Run("pauses and resumes refresh state", PausesAndResumesRefreshState, failures);
+Run("rejects incomplete rate windows", RejectsIncompleteRateWindow, failures);
 
 if (failures.Count > 0)
 {
@@ -56,7 +56,6 @@ static void DetectsWeeklyReset()
 {
     var snapshot = ParseSnapshot();
     var previous = new NotificationState(
-        WeeklyUsedPercent: 82,
         WeeklyResetsAt: snapshot.WeeklyWindow!.ResetsAt!.Value.AddDays(-7),
         AvailableResetCredits: snapshot.AvailableResetCredits);
     var notifications = UsageNotificationDetector.Detect(previous, snapshot);
@@ -67,7 +66,6 @@ static void DetectsNewResetCredit()
 {
     var snapshot = ParseSnapshot();
     var previous = new NotificationState(
-        WeeklyUsedPercent: snapshot.WeeklyWindow?.UsedPercent,
         WeeklyResetsAt: snapshot.WeeklyWindow?.ResetsAt,
         AvailableResetCredits: 1);
     var notifications = UsageNotificationDetector.Detect(previous, snapshot);
@@ -78,7 +76,6 @@ static void DetectsUnusedWeeklyReset()
 {
     var snapshot = ParseSnapshot();
     var previous = new NotificationState(
-        WeeklyUsedPercent: 0,
         WeeklyResetsAt: snapshot.WeeklyWindow!.ResetsAt!.Value.AddDays(-7),
         AvailableResetCredits: snapshot.AvailableResetCredits);
     var notifications = UsageNotificationDetector.Detect(previous, snapshot);
@@ -104,15 +101,13 @@ static void MapsTrayUsageColors()
     Equal(UsageBand.Red, UsageBandSelector.Select(19), "red usage band");
 }
 
-static void PausesAndResumesRefreshState()
+static void RejectsIncompleteRateWindow()
 {
-    var gate = new SessionRefreshGate();
-    True(!gate.IsPaused, "refresh starts enabled");
-    True(gate.Pause(), "first pause changes state");
-    True(gate.IsPaused, "refresh is paused");
-    True(!gate.Pause(), "second pause does not change state");
-    True(gate.Resume(), "resume changes state");
-    True(!gate.IsPaused, "refresh resumes");
+    using var limits = JsonDocument.Parse("""
+        {"id":3,"result":{"rateLimits":{"limitId":"codex","primary":{"windowDurationMins":300}}}}
+        """);
+    var snapshot = CodexSnapshotParser.Parse(null, limits.RootElement, null, DateTimeOffset.Now);
+    Equal<LimitWindow?>(null, snapshot.SessionWindow, "incomplete session window");
 }
 
 static CodexSnapshot ParseSnapshot()

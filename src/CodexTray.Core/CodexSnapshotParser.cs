@@ -92,13 +92,17 @@ public static class CodexSnapshotParser
         }
 
         var used = GetDouble(window, "usedPercent");
-        var duration = GetInt(window, "windowDurationMins") ?? 0;
+        var duration = GetInt(window, "windowDurationMins");
+        if (used is null || duration is null || duration <= 0)
+        {
+            return null;
+        }
         var resetUnix = GetLong(window, "resetsAt");
         DateTimeOffset? resetsAt = resetUnix is { } unix
             ? DateTimeOffset.FromUnixTimeSeconds(unix)
             : null;
 
-        return new LimitWindow(Math.Clamp(used ?? 0d, 0d, 100d), duration, resetsAt);
+        return new LimitWindow(Math.Clamp(used.Value, 0d, 100d), duration.Value, resetsAt);
     }
 
     private static CreditBalance? ParseCredits(JsonElement bucket)

@@ -24,11 +24,11 @@ This unofficial community project is not affiliated with OpenAI.
 
 ## What it does
 
-- Hover over the tray icon to see the full short-window, weekly, credit, token, and update summary.
-- Right-click the tray icon to open the menu. Left-click has no action.
-- Click **Profile & usage** to open the [official Codex usage page](https://chatgpt.com/codex/cloud/settings/analytics#usage).
-- Read the large, transparent percentage glyph in the icon: green above 50%, amber from 21% through 50%, and red at 20% or below.
-- Receive a Windows notification and a taskbar window with a red **1** badge when the weekly window resets or OpenAI adds a reset credit.
+- Hover over the tray icon to see short-window, weekly, and reset-credit status; left-click opens the same card.
+- Right-click the tray icon to open the menu.
+- Click **Analytics** to open the [official Codex usage page](https://chatgpt.com/codex/cloud/settings/analytics#usage).
+- Read the large, transparent percentage glyph in the icon: green above 50%, amber from 20% through 50%, and red below 20%.
+- Receive a Windows notification when the weekly window resets or OpenAI adds a reset credit.
 - Pause polling while Windows is locked, then refresh after unlock.
 - Refresh every five minutes or use **Refresh now**.
 - Start with Windows through the current-user startup setting.
@@ -41,18 +41,12 @@ This unofficial community project is not affiliated with OpenAI.
   Hover over the installed tray icon for the full usage block.
 </p>
 
-<p align="center">
-  <img src="assets/codex-tray-reset-notification.png" alt="Codex weekly reset taskbar notification" width="500">
-  <br>
-  A weekly reset opens a taskbar window with a red 1 badge.
-</p>
-
 ## Trust model
 
 - The app uses OpenAI's documented [`codex app-server`](https://developers.openai.com/codex/app-server/) JSONL protocol.
 - The app does not read `.codex/auth.json`, handle OAuth/API tokens, or make HTTP requests.
 - Codex owns authentication and OpenAI network access.
-- Codex Tray stores the last weekly reset timestamp, weekly usage, and reset-credit count under the current user's local application-data folder. It needs those values to recognize the next reset or credit.
+- Codex Tray stores the last weekly reset timestamp and reset-credit count under the current user's local application-data folder. It needs those values to recognize the next reset or credit.
 - The app has no updater and no NuGet dependencies.
 - Menu links open fixed HTTPS pages only after you click them.
 
@@ -85,6 +79,13 @@ dotnet publish .\src\CodexTray\CodexTray.csproj -c Release -r win-x64 --self-con
 ```
 
 Run `CodexTray.exe` from the publish directory. The app requires no installer or administrator rights.
+
+If enterprise policy blocks unsigned native apphosts, use the framework-dependent build instead:
+
+```powershell
+dotnet publish .\src\CodexTray\CodexTray.csproj -c Release --self-contained false -p:UseAppHost=false -o .\artifacts\publish-managed
+dotnet .\artifacts\publish-managed\CodexTray.dll
+```
 
 Windows may show an unknown-publisher warning because releases are not code-signed yet. Build from source if your environment requires a signed executable.
 

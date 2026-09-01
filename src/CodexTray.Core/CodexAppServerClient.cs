@@ -36,30 +36,30 @@ public sealed class CodexAppServerClient
                         version = typeof(CodexAppServerClient).Assembly.GetName().Version?.ToString(3) ?? "unknown"
                     }
                 }
-            }, timeout.Token);
+            }, timeout.Token).ConfigureAwait(false);
 
-            await ReadResponsesAsync(process.StandardOutput, [1], timeout.Token);
-            await SendAsync(process.StandardInput, new { method = "initialized", @params = new { } }, timeout.Token);
+            await ReadResponsesAsync(process.StandardOutput, [1], timeout.Token).ConfigureAwait(false);
+            await SendAsync(process.StandardInput, new { method = "initialized", @params = new { } }, timeout.Token).ConfigureAwait(false);
             await SendAsync(process.StandardInput, new
             {
                 method = "account/read",
                 id = 2,
                 @params = new { refreshToken = false }
-            }, timeout.Token);
+            }, timeout.Token).ConfigureAwait(false);
             await SendAsync(process.StandardInput, new
             {
                 method = "account/rateLimits/read",
                 id = 3,
                 @params = new { }
-            }, timeout.Token);
+            }, timeout.Token).ConfigureAwait(false);
             await SendAsync(process.StandardInput, new
             {
                 method = "account/usage/read",
                 id = 4,
                 @params = new { }
-            }, timeout.Token);
+            }, timeout.Token).ConfigureAwait(false);
 
-            var responses = await ReadResponsesAsync(process.StandardOutput, [2, 3, 4], timeout.Token);
+            var responses = await ReadResponsesAsync(process.StandardOutput, [2, 3, 4], timeout.Token).ConfigureAwait(false);
             return CodexSnapshotParser.Parse(
                 responses.GetValueOrDefault(2),
                 responses[3],
@@ -72,7 +72,7 @@ public sealed class CodexAppServerClient
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            var stderr = await ReadStderrAfterStopAsync(process, stderrTask);
+            var stderr = await ReadStderrAfterStopAsync(process, stderrTask).ConfigureAwait(false);
             var detail = FirstUsefulLine(stderr);
             throw new InvalidOperationException(
                 string.IsNullOrWhiteSpace(detail) ? ex.Message : $"{ex.Message} ({detail})",
@@ -80,14 +80,18 @@ public sealed class CodexAppServerClient
         }
         finally
         {
-            TryStop(process);
-            try
+            if (TryStop(process))
             {
-                await process.WaitForExitAsync(CancellationToken.None);
-            }
-            catch
-            {
-                // Best-effort child cleanup.
+                try
+                {
+                    await process.WaitForExitAsync(CancellationToken.None)
+                        .WaitAsync(TimeSpan.FromSeconds(2))
+                        .ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Best-effort child cleanup.
+                }
             }
         }
     }
@@ -118,8 +122,8 @@ public sealed class CodexAppServerClient
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await writer.WriteLineAsync(JsonSerializer.Serialize(message));
-        await writer.FlushAsync(cancellationToken);
+        await writer.WriteLineAsync(JsonSerializer.Serialize(message)).ConfigureAwait(false);
+        await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<Dictionary<int, JsonElement>> ReadResponsesAsync(
@@ -130,7 +134,7 @@ public sealed class CodexAppServerClient
         var responses = new Dictionary<int, JsonElement>();
         while (expectedIds.Any(id => !responses.ContainsKey(id)))
         {
-            var line = await reader.ReadLineAsync(cancellationToken);
+            var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
             if (line is null)
             {
                 throw new InvalidOperationException("Codex app-server closed its output unexpectedly.");
@@ -166,7 +170,7 @@ public sealed class CodexAppServerClient
         TryStop(process);
         try
         {
-            return await stderrTask.WaitAsync(TimeSpan.FromSeconds(2));
+            return await stderrTask.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         }
         catch
         {
@@ -181,18 +185,22 @@ public sealed class CodexAppServerClient
             ?? string.Empty;
     }
 
-    private static void TryStop(Process process)
+    private static bool TryStop(Process process)
     {
         try
         {
-            if (!process.HasExited)
+            if (process.HasExited)
             {
-                process.Kill(entireProcessTree: true);
+                return true;
             }
+
+            process.Kill(entireProcessTree: true);
+            return true;
         }
         catch
         {
             // Best-effort child cleanup.
+            return false;
         }
     }
 }
