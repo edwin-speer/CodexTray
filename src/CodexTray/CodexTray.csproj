@@ -8,7 +8,6 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>CodexTray</AssemblyName>
-    <Version>1.0.0</Version>
     <Authors>Carlo Costanzo and contributors</Authors>
     <Description>A small Windows notification-area monitor for Codex usage limits.</Description>
     <RepositoryUrl>https://github.com/CCOSTAN/CodexTray</RepositoryUrl>
