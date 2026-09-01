@@ -38,10 +38,16 @@ internal static class StartupRegistration
             return $"\"{executable}\"";
         }
 
-        var assembly = Assembly.GetEntryAssembly()?.Location;
-        if (string.IsNullOrWhiteSpace(assembly))
+        var assemblyName = Assembly.GetEntryAssembly()?.GetName().Name;
+        if (string.IsNullOrWhiteSpace(assemblyName))
         {
             throw new InvalidOperationException("Could not determine the Codex Tray assembly path.");
+        }
+
+        var assembly = Path.Combine(AppContext.BaseDirectory, assemblyName + ".dll");
+        if (!File.Exists(assembly))
+        {
+            throw new FileNotFoundException("Could not find the Codex Tray assembly.", assembly);
         }
 
         return $"\"{executable}\" \"{assembly}\"";
