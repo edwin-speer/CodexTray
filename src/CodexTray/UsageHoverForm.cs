@@ -315,7 +315,12 @@ internal sealed class UsageHoverForm : Form
 
 internal sealed class UsageRing : Control
 {
+    private const double AnimationDurationMs = 300;
+    private readonly System.Windows.Forms.Timer _animationTimer = new() { Interval = 15 };
     private int _value;
+    private float _displayValue;
+    private float _animationStartValue;
+    private long _animationStartedAt;
 
     public UsageRing(string accessibleName)
     {
@@ -325,6 +330,7 @@ internal sealed class UsageRing : Control
         Font = new Font("Segoe UI", 14f, FontStyle.Bold, GraphicsUnit.Point);
         Margin = new Padding(0, 0, 0, 6);
         Size = new Size(76, 76);
+        _animationTimer.Tick += (_, _) => Animate();
     }
 
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -333,10 +339,48 @@ internal sealed class UsageRing : Control
         get => _value;
         set
         {
-            _value = Math.Clamp(value, 0, 100);
+            var next = Math.Clamp(value, 0, 100);
+            if (_value == next)
+            {
+                return;
+            }
+
+            _value = next;
             AccessibleDescription = $"{_value}% used";
             AccessibilityNotifyClients(AccessibleEvents.ValueChange, -1);
-            Invalidate();
+
+            if (!Visible || !SystemInformation.UIEffectsEnabled)
+            {
+                _animationTimer.Stop();
+                _displayValue = _value;
+                Invalidate();
+                return;
+            }
+
+            _animationStartValue = _displayValue;
+            _animationStartedAt = Environment.TickCount64;
+            _animationTimer.Start();
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _animationTimer.Dispose();
+        }
+        base.Dispose(disposing);
+    }
+
+    private void Animate()
+    {
+        var progress = Math.Min(1d, (Environment.TickCount64 - _animationStartedAt) / AnimationDurationMs);
+        _displayValue = _animationStartValue + (_value - _animationStartValue) * (float)(1 - Math.Pow(1 - progress, 3));
+        Invalidate();
+
+        if (progress >= 1)
+        {
+            _animationTimer.Stop();
         }
     }
 
@@ -357,9 +401,9 @@ internal sealed class UsageRing : Control
         using var progress = new Pen(ringColor, 5f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
         e.Graphics.FillEllipse(tint, bounds);
         e.Graphics.DrawEllipse(track, bounds);
-        if (_value > 0)
+        if (_displayValue > 0)
         {
-            e.Graphics.DrawArc(progress, bounds, -90f, 360f * _value / 100f);
+            e.Graphics.DrawArc(progress, bounds, -90f, 360f * _displayValue / 100f);
         }
         TextRenderer.DrawText(e.Graphics, _value.ToString(), Font, ClientRectangle, ringColor,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
