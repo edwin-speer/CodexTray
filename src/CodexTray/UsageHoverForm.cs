@@ -8,8 +8,10 @@ namespace CodexTray;
 internal sealed class UsageHoverForm : Form
 {
     private const int GaugeLabelWidth = 145;
+    private readonly Label _sessionTitle = HeadingLabel("Daily");
     private readonly Label _session = DetailLabel();
     private readonly UsageRing _sessionRing = new("Daily usage");
+    private readonly Label _weeklyTitle = HeadingLabel("Weekly");
     private readonly Label _weekly = DetailLabel();
     private readonly UsageRing _weeklyRing = new("Weekly usage");
     private readonly Label _credits = DetailLabel();
@@ -24,6 +26,7 @@ internal sealed class UsageHoverForm : Form
     private readonly Button _pinButton = ActionButton("📌", "Pin window");
     private readonly Button _closeButton = ActionButton("✕", "Close window");
     private Font? _accessibilityFont;
+    private Font? _headingFont;
     private CodexSnapshot? _snapshot;
     private Color _borderColor;
 
@@ -83,8 +86,8 @@ internal sealed class UsageHoverForm : Form
             Margin = Padding.Empty,
             WrapContents = false
         };
-        gauges.Controls.Add(Gauge(_sessionRing, _session));
-        gauges.Controls.Add(Gauge(_weeklyRing, _weekly));
+        gauges.Controls.Add(Gauge(_sessionRing, _sessionTitle, _session));
+        gauges.Controls.Add(Gauge(_weeklyRing, _weeklyTitle, _weekly));
         content.Controls.Add(gauges);
         _credits.Margin = Padding.Empty;
         _credits.Padding = new Padding(24, 8, 18, 8);
@@ -125,8 +128,8 @@ internal sealed class UsageHoverForm : Form
     {
         _snapshot = snapshot;
         var now = DateTimeOffset.Now;
-        SetWindow(_session, _sessionRing, "Daily", snapshot.SessionWindow, now);
-        SetWindow(_weekly, _weeklyRing, "Weekly", snapshot.WeeklyWindow, now);
+        SetWindow(_sessionTitle, _session, _sessionRing, "Daily", snapshot.SessionWindow, now);
+        SetWindow(_weeklyTitle, _weekly, _weeklyRing, "Weekly", snapshot.WeeklyWindow, now);
         _credits.Text = DisplayFormatter.CreditsLine(snapshot.AvailableResetCredits);
     }
 
@@ -179,6 +182,7 @@ internal sealed class UsageHoverForm : Form
         if (disposing)
         {
             _accessibilityFont?.Dispose();
+            _headingFont?.Dispose();
         }
         base.Dispose(disposing);
     }
@@ -199,6 +203,13 @@ internal sealed class UsageHoverForm : Form
         MaximumSize = new Size(460, 0)
     };
 
+    private static Label HeadingLabel(string text) => new()
+    {
+        AutoSize = true,
+        Margin = Padding.Empty,
+        Text = text
+    };
+
     private static Button ActionButton(string text, string accessibleName) => new()
     {
         AccessibleName = accessibleName,
@@ -210,11 +221,14 @@ internal sealed class UsageHoverForm : Form
         Width = 24
     };
 
-    private static Control Gauge(UsageRing ring, Label label)
+    private static Control Gauge(UsageRing ring, Label title, Label label)
     {
-        label.MinimumSize = new Size(GaugeLabelWidth, 38);
-        label.MaximumSize = new Size(GaugeLabelWidth, 0);
-        label.TextAlign = ContentAlignment.TopCenter;
+        foreach (var text in new[] { title, label })
+        {
+            text.MinimumSize = new Size(GaugeLabelWidth, 0);
+            text.MaximumSize = new Size(GaugeLabelWidth, 0);
+            text.TextAlign = ContentAlignment.TopCenter;
+        }
 
         var panel = new TableLayoutPanel
         {
@@ -225,6 +239,7 @@ internal sealed class UsageHoverForm : Form
         };
         ring.Anchor = AnchorStyles.None;
         panel.Controls.Add(ring);
+        panel.Controls.Add(title);
         panel.Controls.Add(label);
         return panel;
     }
@@ -272,6 +287,8 @@ internal sealed class UsageHoverForm : Form
             systemFont.Style,
             GraphicsUnit.Point);
         Font = font;
+        var headingFont = new Font("Segoe UI Semibold", 11f * percent / 100f, FontStyle.Regular, GraphicsUnit.Point);
+        _sessionTitle.Font = _weeklyTitle.Font = headingFont;
         var controlScale = 1 + (percent - 100) / 200f;
         var labelWidth = (int)Math.Round(GaugeLabelWidth * controlScale);
         var ringSize = (int)Math.Round(76 * controlScale);
@@ -281,7 +298,9 @@ internal sealed class UsageHoverForm : Form
         _sessionRing.Size = _weeklyRing.Size = new Size(ringSize, ringSize);
         _pinButton.Size = _closeButton.Size = new Size(actionSize, actionSize);
         _accessibilityFont?.Dispose();
+        _headingFont?.Dispose();
         _accessibilityFont = font;
+        _headingFont = headingFont;
     }
 
     private static void ApplyColors(Control control, Color background, Color foreground)
@@ -340,19 +359,20 @@ internal sealed class UsageHoverForm : Form
     private static extern int DwmSetWindowAttribute(nint window, int attribute, ref int value, int size);
 
     private static void SetWindow(
+        Label title,
         Label label,
         UsageRing ring,
         string name,
         LimitWindow? window,
         DateTimeOffset now)
     {
-        label.Visible = ring.Visible = window is not null;
+        title.Visible = label.Visible = ring.Visible = window is not null;
         if (window is null)
         {
             return;
         }
 
-        label.Text = DisplayFormatter.WindowLine(name, window, now);
+        label.Text = DisplayFormatter.WindowLine(name, window, now)[name.Length..].TrimStart();
         ring.Value = (int)Math.Round(Math.Clamp(window.UsedPercent, 0d, 100d));
     }
 }
