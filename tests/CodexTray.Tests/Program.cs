@@ -50,6 +50,7 @@ static void FormatsBarHeading()
     var now = new DateTimeOffset(2026, 8, 26, 12, 0, 0, TimeSpan.Zero);
     var window = new LimitWindow(25, 300, now.AddHours(1));
     Equal("Daily" + Environment.NewLine + "resets in 1h 0m", DisplayFormatter.WindowLine("Daily", window, now), "circle label");
+    Equal("Daily" + Environment.NewLine + $"resets at {window.ResetsAt!.Value.ToLocalTime():t}", DisplayFormatter.WindowLine("Daily", window, now, true), "absolute reset time");
 }
 
 static void DetectsWeeklyReset()

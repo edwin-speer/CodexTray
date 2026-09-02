@@ -8,6 +8,9 @@ namespace CodexTray;
 internal sealed class UsageHoverForm : Form
 {
     private const int GaugeLabelWidth = 145;
+    private const string PreferencesKey = @"HKEY_CURRENT_USER\Software\CodexTray";
+    private const string SessionResetAtPreference = "ShowSessionResetAt";
+    private const string WeeklyResetAtPreference = "ShowWeeklyResetAt";
     private readonly Label _sessionTitle = HeadingLabel("Daily");
     private readonly Label _session = DetailLabel();
     private readonly UsageRing _sessionRing = new("Daily usage");
@@ -29,6 +32,8 @@ internal sealed class UsageHoverForm : Form
     private Font? _headingFont;
     private CodexSnapshot? _snapshot;
     private Color _borderColor;
+    private bool _showSessionResetAt = ReadPreference(SessionResetAtPreference);
+    private bool _showWeeklyResetAt = ReadPreference(WeeklyResetAtPreference);
 
     public event EventHandler? PinnedChanged;
 
@@ -105,6 +110,13 @@ internal sealed class UsageHoverForm : Form
         };
         gauges.Controls.Add(Gauge(_sessionRing, _sessionTitle, _session));
         gauges.Controls.Add(Gauge(_weeklyRing, _weeklyTitle, _weekly));
+        foreach (var resetLabel in new[] { _session, _weekly })
+        {
+            resetLabel.MouseEnter += (sender, _) => HighlightResetLabel((Label)sender!, ((Label)sender!).Cursor == Cursors.Hand);
+            resetLabel.MouseLeave += (sender, _) => HighlightResetLabel((Label)sender!, false);
+            resetLabel.Click += (sender, _) => ToggleResetTime((Label)sender!);
+        }
+        _session.Cursor = Cursors.Hand;
         content.Controls.Add(gauges);
         _credits.Margin = Padding.Empty;
         _credits.Padding = new Padding(12, 8, 18, 8);
@@ -145,8 +157,15 @@ internal sealed class UsageHoverForm : Form
     {
         _snapshot = snapshot;
         var now = DateTimeOffset.Now;
-        SetWindow(_sessionTitle, _session, _sessionRing, "Daily", snapshot.SessionWindow, now);
-        SetWindow(_weeklyTitle, _weekly, _weeklyRing, "Weekly", snapshot.WeeklyWindow, now);
+        var weeklyCanToggle = WeeklyCanToggle(snapshot, now);
+        _weekly.Cursor = weeklyCanToggle ? Cursors.Hand : Cursors.Default;
+        if (_showWeeklyResetAt && !weeklyCanToggle)
+        {
+            _showWeeklyResetAt = false;
+            SavePreference(WeeklyResetAtPreference, false);
+        }
+        SetWindow(_sessionTitle, _session, _sessionRing, "Daily", snapshot.SessionWindow, now, _showSessionResetAt);
+        SetWindow(_weeklyTitle, _weekly, _weeklyRing, "Weekly", snapshot.WeeklyWindow, now, _showWeeklyResetAt);
         _credits.Text = DisplayFormatter.CreditsLine(snapshot.AvailableResetCredits);
     }
 
@@ -311,7 +330,7 @@ internal sealed class UsageHoverForm : Form
         var labelWidth = (int)Math.Round(GaugeLabelWidth * controlScale);
         var ringSize = (int)Math.Round(76 * controlScale);
         var actionSize = (int)Math.Round(24 * percent / 100f);
-        _session.MinimumSize = _weekly.MinimumSize = new Size(labelWidth, 38);
+        _session.MinimumSize = _weekly.MinimumSize = new Size(labelWidth, 0);
         _session.MaximumSize = _weekly.MaximumSize = new Size(labelWidth, 0);
         _sessionRing.Size = _weeklyRing.Size = new Size(ringSize, ringSize);
         _pinButton.Size = _closeButton.Size = new Size(actionSize, actionSize);
@@ -347,7 +366,7 @@ internal sealed class UsageHoverForm : Form
 
     private void EnableDragging(Control control)
     {
-        if (control is not Button)
+        if (control is not Button && control != _session && control != _weekly)
         {
             control.MouseDown += BeginDrag;
         }
@@ -367,6 +386,62 @@ internal sealed class UsageHoverForm : Form
         }
     }
 
+    private static void HighlightResetLabel(Label label, bool highlighted)
+    {
+        var background = label.Parent!.BackColor;
+        label.BackColor = highlighted
+            ? background.GetBrightness() > 0.5f ? Color.LightGray : Color.DarkGray
+            : background;
+    }
+
+    private void ToggleResetTime(Label label)
+    {
+        var now = DateTimeOffset.Now;
+        if (label == _weekly && (_snapshot is null || !WeeklyCanToggle(_snapshot, now)))
+        {
+            return;
+        }
+
+        if (label == _session)
+        {
+            _showSessionResetAt = !_showSessionResetAt;
+            SavePreference(SessionResetAtPreference, _showSessionResetAt);
+        }
+        else
+        {
+            _showWeeklyResetAt = !_showWeeklyResetAt;
+            SavePreference(WeeklyResetAtPreference, _showWeeklyResetAt);
+        }
+
+        if (_snapshot is not null)
+        {
+            UpdateSnapshot(_snapshot);
+        }
+    }
+
+    private static bool WeeklyCanToggle(CodexSnapshot snapshot, DateTimeOffset now) =>
+        snapshot.WeeklyWindow?.ResetsAt is { } resetsAt
+        && resetsAt > now
+        && resetsAt - now < TimeSpan.FromDays(1);
+
+    private static bool ReadPreference(string name) => Registry.GetValue(PreferencesKey, name, 0) is 1;
+
+    private static void SavePreference(string name, bool value)
+    {
+        try
+        {
+            Registry.SetValue(PreferencesKey, name, value ? 1 : 0, RegistryValueKind.DWord);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Preferences are optional; keep the toggle working for this session.
+        }
+        catch (System.Security.SecurityException)
+        {
+            // Preferences are optional; keep the toggle working for this session.
+        }
+    }
+
     [DllImport("user32.dll")]
     private static extern bool ReleaseCapture();
 
@@ -382,7 +457,8 @@ internal sealed class UsageHoverForm : Form
         UsageRing ring,
         string name,
         LimitWindow? window,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        bool showResetAt)
     {
         title.Visible = label.Visible = ring.Visible = window is not null;
         if (window is null)
@@ -390,7 +466,7 @@ internal sealed class UsageHoverForm : Form
             return;
         }
 
-        label.Text = DisplayFormatter.WindowLine(name, window, now)[name.Length..].TrimStart();
+        label.Text = DisplayFormatter.WindowLine(name, window, now, showResetAt)[name.Length..].TrimStart();
         ring.Value = (int)Math.Round(Math.Clamp(window.UsedPercent, 0d, 100d));
     }
 }

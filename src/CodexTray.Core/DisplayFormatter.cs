@@ -2,7 +2,7 @@ namespace CodexTray.Core;
 
 public static class DisplayFormatter
 {
-    public static string WindowLine(string label, LimitWindow? window, DateTimeOffset now)
+    public static string WindowLine(string label, LimitWindow? window, DateTimeOffset now, bool showResetAt = false)
     {
         if (window is null)
         {
@@ -10,7 +10,7 @@ public static class DisplayFormatter
         }
 
         var reset = window.ResetsAt is { } resetsAt
-            ? $"{Environment.NewLine}resets {Countdown(resetsAt, now)}"
+            ? $"{Environment.NewLine}resets {(showResetAt ? $"at {resetsAt.ToLocalTime():t}" : Countdown(resetsAt, now))}"
             : string.Empty;
         return $"{label}{reset}";
     }
