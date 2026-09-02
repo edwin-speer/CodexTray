@@ -10,7 +10,7 @@ public static class DisplayFormatter
         }
 
         var reset = window.ResetsAt is { } resetsAt
-            ? $" · resets {Countdown(resetsAt, now)}"
+            ? $"{Environment.NewLine}resets {Countdown(resetsAt, now)}"
             : string.Empty;
         return $"{label}{reset}";
     }

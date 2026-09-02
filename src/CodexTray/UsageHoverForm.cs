@@ -7,6 +7,7 @@ namespace CodexTray;
 
 internal sealed class UsageHoverForm : Form
 {
+    private const int GaugeLabelWidth = 145;
     private readonly Label _session = DetailLabel();
     private readonly UsageRing _sessionRing = new("Daily usage");
     private readonly Label _weekly = DetailLabel();
@@ -22,6 +23,8 @@ internal sealed class UsageHoverForm : Form
     };
     private readonly Button _pinButton = ActionButton("📌", "Pin window");
     private readonly Button _closeButton = ActionButton("✕", "Close window");
+    private Font? _accessibilityFont;
+    private CodexSnapshot? _snapshot;
     private Color _borderColor;
 
     public event EventHandler? PinnedChanged;
@@ -99,6 +102,7 @@ internal sealed class UsageHoverForm : Form
         layout.Controls.Add(_creditsFooter);
         Controls.Add(layout);
         EnableDragging(layout);
+        ApplyAccessibilityFont();
         ApplyTheme();
     }
 
@@ -119,6 +123,7 @@ internal sealed class UsageHoverForm : Form
 
     public void UpdateSnapshot(CodexSnapshot snapshot)
     {
+        _snapshot = snapshot;
         var now = DateTimeOffset.Now;
         SetWindow(_session, _sessionRing, "Daily", snapshot.SessionWindow, now);
         SetWindow(_weekly, _weeklyRing, "Weekly", snapshot.WeeklyWindow, now);
@@ -160,8 +165,22 @@ internal sealed class UsageHoverForm : Form
         base.WndProc(ref message);
         if (message.Msg == 0x001A)
         {
+            ApplyAccessibilityFont();
+            if (_snapshot is not null)
+            {
+                UpdateSnapshot(_snapshot);
+            }
             ApplyTheme();
         }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _accessibilityFont?.Dispose();
+        }
+        base.Dispose(disposing);
     }
 
     protected override void OnHandleCreated(EventArgs e)
@@ -176,7 +195,6 @@ internal sealed class UsageHoverForm : Form
     {
         AutoSize = true,
         ForeColor = color ?? Color.FromArgb(226, 232, 240),
-        Font = new Font("Segoe UI", 9f, FontStyle.Regular, GraphicsUnit.Point),
         Margin = new Padding(0, 0, 0, 4),
         MaximumSize = new Size(460, 0)
     };
@@ -194,8 +212,8 @@ internal sealed class UsageHoverForm : Form
 
     private static Control Gauge(UsageRing ring, Label label)
     {
-        label.AutoSize = false;
-        label.Size = new Size(145, 38);
+        label.MinimumSize = new Size(GaugeLabelWidth, 38);
+        label.MaximumSize = new Size(GaugeLabelWidth, 0);
         label.TextAlign = ContentAlignment.TopCenter;
 
         var panel = new TableLayoutPanel
@@ -238,6 +256,32 @@ internal sealed class UsageHoverForm : Form
         _credits.ForeColor = footerForeground;
         _borderColor = light ? Color.LightGray : Color.DimGray;
         Invalidate(true);
+    }
+
+    private void ApplyAccessibilityFont()
+    {
+        var systemFont = SystemFonts.MessageBoxFont ?? Control.DefaultFont;
+        var percent = Registry.GetValue(
+            @"HKEY_CURRENT_USER\Software\Microsoft\Accessibility",
+            "TextScaleFactor",
+            100) as int? ?? 100;
+        percent = Math.Clamp(percent, 100, 225);
+        var font = new Font(
+            systemFont.FontFamily,
+            systemFont.Size * percent / 100f,
+            systemFont.Style,
+            GraphicsUnit.Point);
+        Font = font;
+        var controlScale = 1 + (percent - 100) / 200f;
+        var labelWidth = (int)Math.Round(GaugeLabelWidth * controlScale);
+        var ringSize = (int)Math.Round(76 * controlScale);
+        var actionSize = (int)Math.Round(24 * percent / 100f);
+        _session.MinimumSize = _weekly.MinimumSize = new Size(labelWidth, 38);
+        _session.MaximumSize = _weekly.MaximumSize = new Size(labelWidth, 0);
+        _sessionRing.Size = _weeklyRing.Size = new Size(ringSize, ringSize);
+        _pinButton.Size = _closeButton.Size = new Size(actionSize, actionSize);
+        _accessibilityFont?.Dispose();
+        _accessibilityFont = font;
     }
 
     private static void ApplyColors(Control control, Color background, Color foreground)
@@ -321,13 +365,14 @@ internal sealed class UsageRing : Control
     private float _displayValue;
     private float _animationStartValue;
     private long _animationStartedAt;
+    private Font _valueFont;
 
     public UsageRing(string accessibleName)
     {
         AccessibleName = accessibleName;
         AccessibleRole = AccessibleRole.ProgressBar;
         DoubleBuffered = true;
-        Font = new Font("Segoe UI", 14f, FontStyle.Bold, GraphicsUnit.Point);
+        _valueFont = ValueFont(Font);
         Margin = new Padding(0, 0, 0, 6);
         Size = new Size(76, 76);
         _animationTimer.Tick += (_, _) => Animate();
@@ -368,9 +413,23 @@ internal sealed class UsageRing : Control
         if (disposing)
         {
             _animationTimer.Dispose();
+            _valueFont.Dispose();
         }
         base.Dispose(disposing);
     }
+
+    protected override void OnFontChanged(EventArgs e)
+    {
+        base.OnFontChanged(e);
+        _valueFont?.Dispose();
+        _valueFont = ValueFont(Font);
+    }
+
+    private static Font ValueFont(Font font) => new(
+        font.FontFamily,
+        font.Size * 14f / 9f,
+        FontStyle.Bold,
+        GraphicsUnit.Point);
 
     private void Animate()
     {
@@ -388,7 +447,8 @@ internal sealed class UsageRing : Control
     {
         e.Graphics.Clear(BackColor);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        var bounds = new Rectangle(6, 6, Width - 13, Height - 13);
+        var diameter = Math.Min(Width, Height) - 13;
+        var bounds = new Rectangle((Width - diameter) / 2, (Height - diameter) / 2, diameter, diameter);
         var ringColor = SystemInformation.HighContrast ? ForeColor : UsageBandSelector.Select(100 - _value) switch
         {
             UsageBand.Green => Color.FromArgb(34, 197, 94),
@@ -405,7 +465,7 @@ internal sealed class UsageRing : Control
         {
             e.Graphics.DrawArc(progress, bounds, -90f, 360f * _displayValue / 100f);
         }
-        TextRenderer.DrawText(e.Graphics, _value.ToString(), Font, ClientRectangle, ringColor,
+        TextRenderer.DrawText(e.Graphics, _value.ToString(), _valueFont, ClientRectangle, ringColor,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
     }
 }
