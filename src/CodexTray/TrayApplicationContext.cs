@@ -7,7 +7,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 {
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan PinnedRefreshInterval = TimeSpan.FromMinutes(1);
-    private static readonly TimeSpan HoverGracePeriod = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan HoverGracePeriod = TimeSpan.FromSeconds(2);
     private readonly NotifyIcon _notifyIcon;
     private readonly ContextMenuStrip _menu = new();
     private readonly ToolStripMenuItem _analyticsItem = new("Analytics ↗");
