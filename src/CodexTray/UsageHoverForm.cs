@@ -65,7 +65,7 @@ internal sealed class UsageHoverForm : Form
             BackColor = BackColor,
             ColumnCount = 1,
             Margin = Padding.Empty,
-            Padding = new Padding(13, 11, 18, 0)
+            Padding = new Padding(12, 11, 18, 0)
         };
         var actions = new FlowLayoutPanel
         {
@@ -73,24 +73,41 @@ internal sealed class UsageHoverForm : Form
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             FlowDirection = FlowDirection.RightToLeft,
-            Margin = new Padding(0, 0, 0, 4),
+            Margin = Padding.Empty,
             WrapContents = false
         };
         actions.Controls.Add(_pinButton);
         actions.Controls.Add(_closeButton);
-        content.Controls.Add(actions);
+        var balance = DetailLabel();
+        balance.Anchor = AnchorStyles.Left;
+        balance.Margin = Padding.Empty;
+        balance.Text = "Codex balance";
+        var header = new TableLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            Dock = DockStyle.Fill,
+            Margin = Padding.Empty
+        };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        header.Controls.Add(balance);
+        header.Controls.Add(actions);
+        content.Controls.Add(header);
         var gauges = new FlowLayoutPanel
         {
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Margin = Padding.Empty,
+            Padding = new Padding(0, 8, 0, 8),
             WrapContents = false
         };
         gauges.Controls.Add(Gauge(_sessionRing, _sessionTitle, _session));
         gauges.Controls.Add(Gauge(_weeklyRing, _weeklyTitle, _weekly));
         content.Controls.Add(gauges);
         _credits.Margin = Padding.Empty;
-        _credits.Padding = new Padding(24, 8, 18, 8);
+        _credits.Padding = new Padding(12, 8, 18, 8);
         _creditsFooter.Controls.Add(_credits);
 
         var layout = new TableLayoutPanel
@@ -229,13 +246,14 @@ internal sealed class UsageHoverForm : Form
             text.MaximumSize = new Size(GaugeLabelWidth, 0);
             text.TextAlign = ContentAlignment.TopCenter;
         }
+        label.Margin = Padding.Empty;
 
         var panel = new TableLayoutPanel
         {
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             ColumnCount = 1,
-            Margin = new Padding(0, 0, 10, 4)
+            Margin = new Padding(0, 0, 10, 0)
         };
         ring.Anchor = AnchorStyles.None;
         panel.Controls.Add(ring);
