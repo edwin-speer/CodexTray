@@ -182,6 +182,21 @@ internal sealed class UsageHoverForm : Form
             Show();
         }
 
+        PlaceNear(anchor);
+    }
+
+    public void EnsureVisibleNear(Point anchor)
+    {
+        if (!Visible || Screen.FromRectangle(Bounds).WorkingArea.IntersectsWith(Bounds))
+        {
+            return;
+        }
+
+        PlaceNear(anchor);
+    }
+
+    private void PlaceNear(Point anchor)
+    {
         var workArea = Screen.FromPoint(anchor).WorkingArea;
         var x = Math.Clamp(anchor.X - Width + 18, workArea.Left, Math.Max(workArea.Left, workArea.Right - Width));
         var y = anchor.Y - Height - 14;

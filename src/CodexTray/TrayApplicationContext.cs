@@ -68,6 +68,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if (args.Button == MouseButtons.Left)
             {
                 ShowHoverCard();
+                _hoverForm.EnsureVisibleNear(Cursor.Position);
             }
         };
         _notifyIcon.Text = "Codex Tray usage";
