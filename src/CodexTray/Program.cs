@@ -17,9 +17,10 @@ internal static class Program
             return;
         }
 
+        var hooksChanged = CodexHookInstaller.TryInstall();
         ApplicationConfiguration.Initialize();
         var showTestNotification = args.Contains("--test-notification", StringComparer.OrdinalIgnoreCase);
         var showTestHover = args.Contains("--test-hover", StringComparer.OrdinalIgnoreCase);
-        Application.Run(new TrayApplicationContext(showTestNotification, showTestHover));
+        Application.Run(new TrayApplicationContext(showTestNotification, showTestHover, hooksChanged));
     }
 }

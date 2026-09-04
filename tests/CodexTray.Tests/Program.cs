@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using CodexTray.Core;
 
 var failures = new List<string>();
@@ -13,6 +14,7 @@ Run("does not duplicate a weekly-only window", DoesNotDuplicateWeeklyOnlyWindow,
 Run("maps tray usage colors", MapsTrayUsageColors, failures);
 Run("rejects incomplete rate windows", RejectsIncompleteRateWindow, failures);
 Run("maps Codex lifecycle hooks", MapsCodexLifecycleHooks, failures);
+Run("merges Codex lifecycle hooks", MergesCodexLifecycleHooks, failures);
 
 if (failures.Count > 0)
 {
@@ -20,7 +22,7 @@ if (failures.Count > 0)
     return 1;
 }
 
-Console.WriteLine("All 11 Codex Tray checks passed.");
+Console.WriteLine("All 12 Codex Tray checks passed.");
 return 0;
 
 static void ParsesRateWindows()
@@ -117,6 +119,26 @@ static void MapsCodexLifecycleHooks()
     Equal(CodexActivity.Busy, CodexActivityStore.ClassifyHook("UserPromptSubmit", null), "submitted prompt");
     Equal(CodexActivity.Waiting, CodexActivityStore.ClassifyHook("Stop", "Which option do you prefer?"), "question");
     Equal(CodexActivity.Done, CodexActivityStore.ClassifyHook("Stop", "Implemented and verified."), "completed turn");
+}
+
+static void MergesCodexLifecycleHooks()
+{
+    var root = JsonNode.Parse("""
+        {"description":"Keep me","hooks":{"Stop":[{"hooks":[{"type":"command","command":"other-tool"}]}]}}
+        """)!.AsObject();
+    const string command = "dotnet \"C:\\Program Files\\CodexTray\\CodexTray.dll\" --status-hook";
+
+    True(CodexHookConfiguration.EnsureInstalled(root, command), "first hook merge changed configuration");
+    True(!CodexHookConfiguration.EnsureInstalled(root, command), "second hook merge was idempotent");
+    Equal("Keep me", root["description"]?.GetValue<string>(), "existing root content");
+    Equal("other-tool", root["hooks"]?["Stop"]?[0]?["hooks"]?[0]?["command"]?.GetValue<string>(), "unrelated hook");
+    foreach (var eventName in new[] { "UserPromptSubmit", "Stop", "Interrupt", "SessionEnd" })
+    {
+        var installed = root["hooks"]?[eventName]?.AsArray()
+            .SelectMany(group => group?["hooks"]?.AsArray() ?? [])
+            .Count(handler => handler?["command"]?.GetValue<string>() == command);
+        Equal(1, installed, $"{eventName} hook count");
+    }
 }
 
 static CodexSnapshot ParseSnapshot()

@@ -32,7 +32,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private bool _shownFailure;
     private bool _keepHoverOpenForTest;
 
-    public TrayApplicationContext(bool showTestNotification = false, bool showTestHover = false)
+    public TrayApplicationContext(bool showTestNotification = false, bool showTestHover = false, bool hooksChanged = false)
     {
         _notificationState = _notificationStateStore.Load();
         _menu.Items.AddRange([
@@ -89,6 +89,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if (showTestNotification)
             {
                 ShowTestNotification();
+            }
+            if (hooksChanged)
+            {
+                _notifyIcon.BalloonTipTitle = "CodexTray hooks need review";
+                _notifyIcon.BalloonTipText = "Run /hooks in Codex to review and trust the CodexTray hooks.";
+                _notifyIcon.ShowBalloonTip(8000);
             }
             if (showTestHover && _lastSnapshot is not null)
             {
