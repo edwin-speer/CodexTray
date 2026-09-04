@@ -8,6 +8,7 @@ namespace CodexTray;
 internal sealed class UsageHoverForm : Form
 {
     private const int GaugeLabelWidth = 145;
+    private const int ActivityBorderHeight = 6;
     private const string PreferencesKey = @"HKEY_CURRENT_USER\Software\CodexTray";
     private const string SessionResetAtPreference = "ShowSessionResetAt";
     private const string WeeklyResetAtPreference = "ShowWeeklyResetAt";
@@ -28,10 +29,13 @@ internal sealed class UsageHoverForm : Form
     };
     private readonly Button _pinButton = ActionButton("📌", "Pin window");
     private readonly Button _closeButton = ActionButton("✕", "Close window");
+    private readonly System.Windows.Forms.Timer _activityTimer = new() { Interval = 500 };
     private Font? _accessibilityFont;
     private Font? _headingFont;
     private CodexSnapshot? _snapshot;
     private Color _borderColor;
+    private Color _activityColor;
+    private CodexActivity _activity;
     private bool _showSessionResetAt = ReadPreference(SessionResetAtPreference);
     private bool _showWeeklyResetAt = ReadPreference(WeeklyResetAtPreference);
 
@@ -49,7 +53,7 @@ internal sealed class UsageHoverForm : Form
         FormBorderStyle = FormBorderStyle.None;
         MaximizeBox = false;
         MinimizeBox = false;
-        Padding = new Padding(1);
+        Padding = new Padding(1, ActivityBorderHeight, 1, 1);
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
         Text = "Codex Tray usage";
@@ -134,6 +138,9 @@ internal sealed class UsageHoverForm : Form
         layout.Controls.Add(_creditsFooter);
         Controls.Add(layout);
         EnableDragging(layout);
+        _activityTimer.Tick += (_, _) => SetActivity(CodexActivityStore.Read());
+        _activityTimer.Start();
+        SetActivity(CodexActivityStore.Read());
         ApplyAccessibilityFont();
         ApplyTheme();
     }
@@ -212,6 +219,8 @@ internal sealed class UsageHoverForm : Form
         base.OnPaint(e);
         using var border = new Pen(_borderColor);
         e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+        using var activity = new SolidBrush(_activityColor);
+        e.Graphics.FillRectangle(activity, 0, 0, Width, ActivityBorderHeight);
     }
 
     protected override void WndProc(ref Message message)
@@ -232,6 +241,7 @@ internal sealed class UsageHoverForm : Form
     {
         if (disposing)
         {
+            _activityTimer.Dispose();
             _accessibilityFont?.Dispose();
             _headingFont?.Dispose();
         }
@@ -364,6 +374,24 @@ internal sealed class UsageHoverForm : Form
         {
             ApplyColors(child, background, foreground);
         }
+    }
+
+    private void SetActivity(CodexActivity activity)
+    {
+        if (_activity == activity && _activityColor != Color.Empty)
+        {
+            return;
+        }
+
+        _activity = activity;
+        _activityColor = activity switch
+        {
+            CodexActivity.Busy => Color.FromArgb(59, 130, 246),
+            CodexActivity.Waiting => Color.FromArgb(245, 158, 11),
+            _ => Color.FromArgb(34, 197, 94)
+        };
+        AccessibleDescription = $"Codex is {activity.ToString().ToLowerInvariant()}";
+        Invalidate();
     }
 
     private void SetPinned(bool pinned)

@@ -12,6 +12,7 @@ Run("detects a new reset credit", DetectsNewResetCredit, failures);
 Run("does not duplicate a weekly-only window", DoesNotDuplicateWeeklyOnlyWindow, failures);
 Run("maps tray usage colors", MapsTrayUsageColors, failures);
 Run("rejects incomplete rate windows", RejectsIncompleteRateWindow, failures);
+Run("maps Codex lifecycle hooks", MapsCodexLifecycleHooks, failures);
 
 if (failures.Count > 0)
 {
@@ -19,7 +20,7 @@ if (failures.Count > 0)
     return 1;
 }
 
-Console.WriteLine("All 10 Codex Tray checks passed.");
+Console.WriteLine("All 11 Codex Tray checks passed.");
 return 0;
 
 static void ParsesRateWindows()
@@ -109,6 +110,13 @@ static void RejectsIncompleteRateWindow()
         """);
     var snapshot = CodexSnapshotParser.Parse(null, limits.RootElement, null, DateTimeOffset.Now);
     Equal<LimitWindow?>(null, snapshot.SessionWindow, "incomplete session window");
+}
+
+static void MapsCodexLifecycleHooks()
+{
+    Equal(CodexActivity.Busy, CodexActivityStore.ClassifyHook("UserPromptSubmit", null), "submitted prompt");
+    Equal(CodexActivity.Waiting, CodexActivityStore.ClassifyHook("Stop", "Which option do you prefer?"), "question");
+    Equal(CodexActivity.Done, CodexActivityStore.ClassifyHook("Stop", "Implemented and verified."), "completed turn");
 }
 
 static CodexSnapshot ParseSnapshot()

@@ -5,6 +5,12 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--status-hook", StringComparer.OrdinalIgnoreCase))
+        {
+            CodexTray.Core.CodexActivityStore.UpdateFromHook(Console.In.ReadToEnd());
+            return;
+        }
+
         using var singleInstance = new Mutex(initiallyOwned: true, "Local\\CodexTray", out var createdNew);
         if (!createdNew)
         {
