@@ -27,6 +27,11 @@ internal sealed class UsageHoverForm : Form
         Margin = Padding.Empty,
         Padding = Padding.Empty
     };
+    private readonly Panel _activityBorder = new()
+    {
+        Dock = DockStyle.Fill,
+        Margin = Padding.Empty
+    };
     private readonly Button _pinButton = ActionButton("📌", "Pin window");
     private readonly Button _closeButton = ActionButton("✕", "Close window");
     private readonly System.Windows.Forms.Timer _activityTimer = new() { Interval = 500 };
@@ -34,7 +39,6 @@ internal sealed class UsageHoverForm : Form
     private Font? _headingFont;
     private CodexSnapshot? _snapshot;
     private Color _borderColor;
-    private Color _activityColor;
     private CodexActivity _activity;
     private bool _showSessionResetAt = ReadPreference(SessionResetAtPreference);
     private bool _showWeeklyResetAt = ReadPreference(WeeklyResetAtPreference);
@@ -53,7 +57,7 @@ internal sealed class UsageHoverForm : Form
         FormBorderStyle = FormBorderStyle.None;
         MaximizeBox = false;
         MinimizeBox = false;
-        Padding = new Padding(1, ActivityBorderHeight, 1, 1);
+        Padding = new Padding(1);
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
         Text = "Codex Tray usage";
@@ -132,8 +136,13 @@ internal sealed class UsageHoverForm : Form
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             BackColor = BackColor,
             ColumnCount = 1,
-            Margin = Padding.Empty
+            Margin = Padding.Empty,
+            RowCount = 3
         };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, ActivityBorderHeight));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.Controls.Add(_activityBorder);
         layout.Controls.Add(content);
         layout.Controls.Add(_creditsFooter);
         Controls.Add(layout);
@@ -219,8 +228,6 @@ internal sealed class UsageHoverForm : Form
         base.OnPaint(e);
         using var border = new Pen(_borderColor);
         e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
-        using var activity = new SolidBrush(_activityColor);
-        e.Graphics.FillRectangle(activity, 0, 0, Width, ActivityBorderHeight);
     }
 
     protected override void WndProc(ref Message message)
@@ -315,6 +322,7 @@ internal sealed class UsageHoverForm : Form
             _credits.BackColor = SystemColors.Window;
             _credits.ForeColor = SystemColors.WindowText;
             _borderColor = SystemColors.WindowFrame;
+            _activityBorder.BackColor = ActivityColor(_activity);
             Invalidate(true);
             return;
         }
@@ -332,6 +340,7 @@ internal sealed class UsageHoverForm : Form
         _creditsFooter.BackColor = _credits.BackColor = footerBackground;
         _credits.ForeColor = footerForeground;
         _borderColor = light ? Color.LightGray : Color.DimGray;
+        _activityBorder.BackColor = ActivityColor(_activity);
         Invalidate(true);
     }
 
@@ -378,21 +387,23 @@ internal sealed class UsageHoverForm : Form
 
     private void SetActivity(CodexActivity activity)
     {
-        if (_activity == activity && _activityColor != Color.Empty)
+        var color = ActivityColor(activity);
+        if (_activity == activity && _activityBorder.BackColor == color)
         {
             return;
         }
 
         _activity = activity;
-        _activityColor = activity switch
-        {
-            CodexActivity.Busy => Color.FromArgb(59, 130, 246),
-            CodexActivity.Waiting => Color.FromArgb(245, 158, 11),
-            _ => Color.FromArgb(34, 197, 94)
-        };
+        _activityBorder.BackColor = color;
         AccessibleDescription = $"Codex is {activity.ToString().ToLowerInvariant()}";
-        Invalidate();
     }
+
+    private static Color ActivityColor(CodexActivity activity) => activity switch
+    {
+        CodexActivity.Busy => Color.FromArgb(59, 130, 246),
+        CodexActivity.Waiting => Color.FromArgb(245, 158, 11),
+        _ => Color.FromArgb(34, 197, 94)
+    };
 
     private void SetPinned(bool pinned)
     {
