@@ -26,6 +26,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private Icon? _currentIcon;
     private DateTimeOffset _lastTrayMouseMove = DateTimeOffset.MinValue;
     private Point _lastTrayMousePosition = Point.Empty;
+    private string? _resetCreditIdempotencyKey;
     private bool _refreshing;
     private bool _refreshPaused;
     private bool _refreshAfterCurrent;
@@ -76,6 +77,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _refreshTimer = new System.Windows.Forms.Timer { Interval = (int)RefreshInterval.TotalMilliseconds };
         _refreshTimer.Tick += async (_, _) => await RefreshAsync(showFailureBalloon: false);
         _hoverForm.PinnedChanged += (_, _) => OnPinnedChanged();
+        _hoverForm.ResetCreditRequested += async (_, _) => await UseResetCreditAsync();
         _refreshTimer.Start();
 
         _hoverTimer = new System.Windows.Forms.Timer { Interval = 200 };
@@ -191,6 +193,49 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         _hoverForm.UpdateSnapshot(snapshot);
         ReplaceIcon(snapshot.DisplayWindow?.RemainingPercent);
+    }
+
+    private async Task UseResetCreditAsync()
+    {
+        try
+        {
+            _client ??= new CodexAppServerClient(CodexLocator.Locate());
+            _resetCreditIdempotencyKey ??= Guid.NewGuid().ToString();
+            var outcome = await _client.ConsumeResetCreditAsync(_resetCreditIdempotencyKey);
+            _resetCreditIdempotencyKey = null;
+
+            if (outcome is not ("reset" or "alreadyRedeemed"))
+            {
+                var message = outcome == "nothingToReset"
+                    ? "There is no current usage window to reset."
+                    : outcome == "noCredit"
+                        ? "There are no reset credits available."
+                        : $"Codex did not use a reset credit ({outcome}).";
+                MessageBox.Show(_hoverForm, message, "Codex Tray", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+
+            if (_refreshing)
+            {
+                _refreshAfterCurrent = true;
+            }
+            else
+            {
+                await RefreshAsync(showFailureBalloon: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                _hoverForm,
+                Shorten(ex.Message, 220),
+                "Codex Tray could not use the reset credit",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+        finally
+        {
+            _hoverForm.CompleteResetCreditRequest();
+        }
     }
 
     private void ReplaceIcon(double? remainingPercent)

@@ -16,6 +16,82 @@ public sealed class CodexAppServerClient
 
     public async Task<CodexSnapshot> FetchAsync(CancellationToken cancellationToken = default)
     {
+        return await RunAsync(async (writer, reader, token) =>
+        {
+            await InitializeAsync(writer, reader, token).ConfigureAwait(false);
+            await SendAsync(writer, new
+            {
+                method = "account/read",
+                id = 2,
+                @params = new { refreshToken = false }
+            }, token).ConfigureAwait(false);
+            await SendAsync(writer, new
+            {
+                method = "account/rateLimits/read",
+                id = 3,
+                @params = new { }
+            }, token).ConfigureAwait(false);
+            await SendAsync(writer, new
+            {
+                method = "account/usage/read",
+                id = 4,
+                @params = new { }
+            }, token).ConfigureAwait(false);
+
+            var responses = await ReadResponsesAsync(reader, [2, 3, 4], token).ConfigureAwait(false);
+            return CodexSnapshotParser.Parse(
+                responses.GetValueOrDefault(2),
+                responses[3],
+                responses.GetValueOrDefault(4),
+                DateTimeOffset.Now);
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<string> ConsumeResetCreditAsync(
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        return await RunAsync(async (writer, reader, token) =>
+        {
+            await InitializeAsync(writer, reader, token).ConfigureAwait(false);
+            await SendAsync(writer, new
+            {
+                method = "account/rateLimitResetCredit/consume",
+                id = 2,
+                @params = new { idempotencyKey }
+            }, token).ConfigureAwait(false);
+            var responses = await ReadResponsesAsync(reader, [2], token).ConfigureAwait(false);
+            return CodexSnapshotParser.ParseResetCreditOutcome(responses[2]);
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task InitializeAsync(
+        StreamWriter writer,
+        StreamReader reader,
+        CancellationToken cancellationToken)
+    {
+        await SendAsync(writer, new
+        {
+            method = "initialize",
+            id = 1,
+            @params = new
+            {
+                clientInfo = new
+                {
+                    name = "CodexTray",
+                    title = "Codex Tray",
+                    version = typeof(CodexAppServerClient).Assembly.GetName().Version?.ToString(3) ?? "unknown"
+                }
+            }
+        }, cancellationToken).ConfigureAwait(false);
+        await ReadResponsesAsync(reader, [1], cancellationToken).ConfigureAwait(false);
+        await SendAsync(writer, new { method = "initialized", @params = new { } }, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<T> RunAsync<T>(
+        Func<StreamWriter, StreamReader, CancellationToken, Task<T>> action,
+        CancellationToken cancellationToken)
+    {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_timeout);
         using var process = StartProcess();
@@ -23,48 +99,7 @@ public sealed class CodexAppServerClient
 
         try
         {
-            await SendAsync(process.StandardInput, new
-            {
-                method = "initialize",
-                id = 1,
-                @params = new
-                {
-                    clientInfo = new
-                    {
-                        name = "CodexTray",
-                        title = "Codex Tray",
-                        version = typeof(CodexAppServerClient).Assembly.GetName().Version?.ToString(3) ?? "unknown"
-                    }
-                }
-            }, timeout.Token).ConfigureAwait(false);
-
-            await ReadResponsesAsync(process.StandardOutput, [1], timeout.Token).ConfigureAwait(false);
-            await SendAsync(process.StandardInput, new { method = "initialized", @params = new { } }, timeout.Token).ConfigureAwait(false);
-            await SendAsync(process.StandardInput, new
-            {
-                method = "account/read",
-                id = 2,
-                @params = new { refreshToken = false }
-            }, timeout.Token).ConfigureAwait(false);
-            await SendAsync(process.StandardInput, new
-            {
-                method = "account/rateLimits/read",
-                id = 3,
-                @params = new { }
-            }, timeout.Token).ConfigureAwait(false);
-            await SendAsync(process.StandardInput, new
-            {
-                method = "account/usage/read",
-                id = 4,
-                @params = new { }
-            }, timeout.Token).ConfigureAwait(false);
-
-            var responses = await ReadResponsesAsync(process.StandardOutput, [2, 3, 4], timeout.Token).ConfigureAwait(false);
-            return CodexSnapshotParser.Parse(
-                responses.GetValueOrDefault(2),
-                responses[3],
-                responses.GetValueOrDefault(4),
-                DateTimeOffset.Now);
+            return await action(process.StandardInput, process.StandardOutput, timeout.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {

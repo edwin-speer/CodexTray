@@ -19,13 +19,30 @@ internal sealed class UsageHoverForm : Form
     private readonly Label _weekly = DetailLabel();
     private readonly UsageRing _weeklyRing = new("Weekly usage");
     private readonly Label _credits = DetailLabel();
-    private readonly Panel _creditsFooter = new()
+    private readonly Button _useCreditButton = FooterButton("Use");
+    private readonly Label _resetQuestion = DetailLabel();
+    private readonly Button _confirmResetButton = FooterButton("Use one credit");
+    private readonly Button _cancelResetButton = FooterButton("Cancel");
+    private readonly FlowLayoutPanel _creditsFooter = new()
     {
         AutoSize = true,
         AutoSizeMode = AutoSizeMode.GrowAndShrink,
         Dock = DockStyle.Fill,
+        FlowDirection = FlowDirection.LeftToRight,
         Margin = Padding.Empty,
-        Padding = Padding.Empty
+        Padding = Padding.Empty,
+        WrapContents = false
+    };
+    private readonly TableLayoutPanel _resetConfirmation = new()
+    {
+        AutoSize = true,
+        AutoSizeMode = AutoSizeMode.GrowAndShrink,
+        ColumnCount = 1,
+        Dock = DockStyle.Fill,
+        Margin = Padding.Empty,
+        Padding = new Padding(12, 8, 12, 8),
+        RowCount = 2,
+        Visible = false
     };
     private readonly Panel _activityBorder = new()
     {
@@ -44,6 +61,7 @@ internal sealed class UsageHoverForm : Form
     private bool _showWeeklyResetAt = ReadPreference(WeeklyResetAtPreference);
 
     public event EventHandler? PinnedChanged;
+    public event EventHandler? ResetCreditRequested;
 
     public bool IsPinned { get; private set; }
 
@@ -129,6 +147,33 @@ internal sealed class UsageHoverForm : Form
         _credits.Margin = Padding.Empty;
         _credits.Padding = new Padding(12, 8, 18, 8);
         _creditsFooter.Controls.Add(_credits);
+        _useCreditButton.Margin = new Padding(0, 4, 12, 4);
+        _useCreditButton.Visible = false;
+        _useCreditButton.Click += (_, _) =>
+        {
+            _resetConfirmation.Visible = true;
+            _confirmResetButton.Focus();
+        };
+        _creditsFooter.Controls.Add(_useCreditButton);
+
+        _resetQuestion.Margin = new Padding(0, 0, 0, 4);
+        _resetQuestion.Text = "Are you sure you want to use one credit?";
+        var confirmationActions = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            FlowDirection = FlowDirection.LeftToRight,
+            Margin = Padding.Empty,
+            WrapContents = false
+        };
+        _confirmResetButton.Margin = new Padding(0, 0, 8, 0);
+        _cancelResetButton.Margin = Padding.Empty;
+        _cancelResetButton.Click += (_, _) => _resetConfirmation.Visible = false;
+        _confirmResetButton.Click += (_, _) => RequestResetCredit();
+        confirmationActions.Controls.Add(_confirmResetButton);
+        confirmationActions.Controls.Add(_cancelResetButton);
+        _resetConfirmation.Controls.Add(_resetQuestion);
+        _resetConfirmation.Controls.Add(confirmationActions);
 
         var layout = new TableLayoutPanel
         {
@@ -137,13 +182,15 @@ internal sealed class UsageHoverForm : Form
             BackColor = BackColor,
             ColumnCount = 1,
             Margin = Padding.Empty,
-            RowCount = 3
+            RowCount = 4
         };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, ActivityBorderHeight));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.Controls.Add(_activityBorder);
         layout.Controls.Add(content);
+        layout.Controls.Add(_resetConfirmation);
         layout.Controls.Add(_creditsFooter);
         Controls.Add(layout);
         EnableDragging(layout);
@@ -183,6 +230,20 @@ internal sealed class UsageHoverForm : Form
         SetWindow(_sessionTitle, _session, _sessionRing, "Daily", snapshot.SessionWindow, now, _showSessionResetAt);
         SetWindow(_weeklyTitle, _weekly, _weeklyRing, "Weekly", snapshot.WeeklyWindow, now, _showWeeklyResetAt);
         _credits.Text = DisplayFormatter.CreditsLine(snapshot.AvailableResetCredits);
+        _useCreditButton.Visible = snapshot.AvailableResetCredits > 0;
+        _credits.Padding = new Padding(12, 8, _useCreditButton.Visible ? 4 : 18, 8);
+        if (!_useCreditButton.Visible)
+        {
+            _resetConfirmation.Visible = false;
+        }
+    }
+
+    public void CompleteResetCreditRequest()
+    {
+        _useCreditButton.Enabled = true;
+        _confirmResetButton.Enabled = true;
+        _cancelResetButton.Enabled = true;
+        _resetConfirmation.Visible = false;
     }
 
     public void ShowNear(Point anchor)
@@ -289,6 +350,13 @@ internal sealed class UsageHoverForm : Form
         Width = 24
     };
 
+    private static Button FooterButton(string text) => new()
+    {
+        AutoSize = true,
+        Padding = new Padding(4, 0, 4, 0),
+        Text = text
+    };
+
     private static Control Gauge(UsageRing ring, Label title, Label label)
     {
         foreach (var text in new[] { title, label })
@@ -318,9 +386,8 @@ internal sealed class UsageHoverForm : Form
         if (SystemInformation.HighContrast)
         {
             ApplyColors(this, SystemColors.Window, SystemColors.WindowText);
-            _creditsFooter.BackColor = SystemColors.Window;
-            _credits.BackColor = SystemColors.Window;
-            _credits.ForeColor = SystemColors.WindowText;
+            ApplyColors(_creditsFooter, SystemColors.Window, SystemColors.WindowText);
+            ApplyColors(_resetConfirmation, SystemColors.Window, SystemColors.WindowText);
             _borderColor = SystemColors.WindowFrame;
             _activityBorder.BackColor = ActivityColor(_activity);
             Invalidate(true);
@@ -337,8 +404,8 @@ internal sealed class UsageHoverForm : Form
         var footerForeground = light ? Color.FromArgb(31, 41, 55) : Color.FromArgb(241, 245, 249);
 
         ApplyColors(this, background, foreground);
-        _creditsFooter.BackColor = _credits.BackColor = footerBackground;
-        _credits.ForeColor = footerForeground;
+        ApplyColors(_creditsFooter, footerBackground, footerForeground);
+        ApplyColors(_resetConfirmation, footerBackground, footerForeground);
         _borderColor = light ? Color.LightGray : Color.DimGray;
         _activityBorder.BackColor = ActivityColor(_activity);
         Invalidate(true);
@@ -416,6 +483,20 @@ internal sealed class UsageHoverForm : Form
         _pinButton.Visible = !pinned;
         _closeButton.Visible = pinned;
         PinnedChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RequestResetCredit()
+    {
+        _useCreditButton.Enabled = false;
+        _confirmResetButton.Enabled = false;
+        _cancelResetButton.Enabled = false;
+        if (ResetCreditRequested is null)
+        {
+            CompleteResetCreditRequest();
+            return;
+        }
+
+        ResetCreditRequested.Invoke(this, EventArgs.Empty);
     }
 
     private void EnableDragging(Control control)

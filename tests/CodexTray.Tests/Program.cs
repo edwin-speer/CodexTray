@@ -4,6 +4,7 @@ using CodexTray.Core;
 
 var failures = new List<string>();
 Run("parses rate windows and reset credits", ParsesRateWindows, failures);
+Run("parses a reset-credit result", ParsesResetCreditResult, failures);
 Run("parses usage summary and today's tokens", ParsesUsage, failures);
 Run("prefers the codex bucket", PrefersCodexBucket, failures);
 Run("formats circle labels", FormatsBarHeading, failures);
@@ -22,7 +23,7 @@ if (failures.Count > 0)
     return 1;
 }
 
-Console.WriteLine("All 12 Codex Tray checks passed.");
+Console.WriteLine("All 13 Codex Tray checks passed.");
 return 0;
 
 static void ParsesRateWindows()
@@ -54,6 +55,12 @@ static void FormatsBarHeading()
     var window = new LimitWindow(25, 300, now.AddHours(1));
     Equal("Daily" + Environment.NewLine + "resets in 1h 0m", DisplayFormatter.WindowLine("Daily", window, now), "circle label");
     Equal("Daily" + Environment.NewLine + $"resets at {window.ResetsAt!.Value.ToLocalTime():t}", DisplayFormatter.WindowLine("Daily", window, now, true), "absolute reset time");
+}
+
+static void ParsesResetCreditResult()
+{
+    using var response = JsonDocument.Parse("""{"id":2,"result":{"outcome":"reset"}}""");
+    Equal("reset", CodexSnapshotParser.ParseResetCreditOutcome(response.RootElement), "reset-credit outcome");
 }
 
 static void DetectsWeeklyReset()

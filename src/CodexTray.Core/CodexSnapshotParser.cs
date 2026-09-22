@@ -5,6 +5,12 @@ namespace CodexTray.Core;
 
 public static class CodexSnapshotParser
 {
+    public static string ParseResetCreditOutcome(JsonElement response)
+    {
+        var outcome = GetString(RequiredResult(response, "reset credit"), "outcome");
+        return outcome ?? throw new InvalidOperationException("Codex returned no reset-credit outcome.");
+    }
+
     public static CodexSnapshot Parse(
         JsonElement? accountResponse,
         JsonElement rateLimitsResponse,
