@@ -21,7 +21,7 @@ internal sealed class UsageHoverForm : Form
     private readonly Label _credits = DetailLabel();
     private readonly Button _useCreditButton = FooterButton("Use");
     private readonly Label _resetQuestion = DetailLabel();
-    private readonly Button _confirmResetButton = FooterButton("Use one credit");
+    private readonly Button _confirmResetButton = FooterButton("Reset balance");
     private readonly Button _cancelResetButton = FooterButton("Cancel");
     private readonly FlowLayoutPanel _creditsFooter = new()
     {
@@ -151,13 +151,15 @@ internal sealed class UsageHoverForm : Form
         _useCreditButton.Visible = false;
         _useCreditButton.Click += (_, _) =>
         {
+            _resetQuestion.Text = $"{_credits.Text}. Are you sure you want to use one reset credit?";
+            _credits.Visible = false;
+            _useCreditButton.Visible = false;
             _resetConfirmation.Visible = true;
             _confirmResetButton.Focus();
         };
         _creditsFooter.Controls.Add(_useCreditButton);
 
         _resetQuestion.Margin = new Padding(0, 0, 0, 4);
-        _resetQuestion.Text = "Are you sure you want to use one credit?";
         var confirmationActions = new FlowLayoutPanel
         {
             AutoSize = true,
@@ -168,12 +170,13 @@ internal sealed class UsageHoverForm : Form
         };
         _confirmResetButton.Margin = new Padding(0, 0, 8, 0);
         _cancelResetButton.Margin = Padding.Empty;
-        _cancelResetButton.Click += (_, _) => _resetConfirmation.Visible = false;
+        _cancelResetButton.Click += (_, _) => ShowCreditSummary();
         _confirmResetButton.Click += (_, _) => RequestResetCredit();
         confirmationActions.Controls.Add(_confirmResetButton);
         confirmationActions.Controls.Add(_cancelResetButton);
         _resetConfirmation.Controls.Add(_resetQuestion);
         _resetConfirmation.Controls.Add(confirmationActions);
+        _creditsFooter.Controls.Add(_resetConfirmation);
 
         var layout = new TableLayoutPanel
         {
@@ -182,15 +185,13 @@ internal sealed class UsageHoverForm : Form
             BackColor = BackColor,
             ColumnCount = 1,
             Margin = Padding.Empty,
-            RowCount = 4
+            RowCount = 3
         };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, ActivityBorderHeight));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.Controls.Add(_activityBorder);
         layout.Controls.Add(content);
-        layout.Controls.Add(_resetConfirmation);
         layout.Controls.Add(_creditsFooter);
         Controls.Add(layout);
         EnableDragging(layout);
@@ -230,11 +231,15 @@ internal sealed class UsageHoverForm : Form
         SetWindow(_sessionTitle, _session, _sessionRing, "Daily", snapshot.SessionWindow, now, _showSessionResetAt);
         SetWindow(_weeklyTitle, _weekly, _weeklyRing, "Weekly", snapshot.WeeklyWindow, now, _showWeeklyResetAt);
         _credits.Text = DisplayFormatter.CreditsLine(snapshot.AvailableResetCredits);
-        _useCreditButton.Visible = snapshot.AvailableResetCredits > 0;
-        _credits.Padding = new Padding(12, 8, _useCreditButton.Visible ? 4 : 18, 8);
-        if (!_useCreditButton.Visible)
+        var hasCredits = snapshot.AvailableResetCredits > 0;
+        _credits.Padding = new Padding(12, 8, hasCredits ? 4 : 18, 8);
+        if (!hasCredits)
         {
-            _resetConfirmation.Visible = false;
+            ShowCreditSummary();
+        }
+        else if (!_resetConfirmation.Visible)
+        {
+            _useCreditButton.Visible = true;
         }
     }
 
@@ -243,7 +248,7 @@ internal sealed class UsageHoverForm : Form
         _useCreditButton.Enabled = true;
         _confirmResetButton.Enabled = true;
         _cancelResetButton.Enabled = true;
-        _resetConfirmation.Visible = false;
+        ShowCreditSummary();
     }
 
     public void ShowNear(Point anchor)
@@ -387,7 +392,6 @@ internal sealed class UsageHoverForm : Form
         {
             ApplyColors(this, SystemColors.Window, SystemColors.WindowText);
             ApplyColors(_creditsFooter, SystemColors.Window, SystemColors.WindowText);
-            ApplyColors(_resetConfirmation, SystemColors.Window, SystemColors.WindowText);
             _borderColor = SystemColors.WindowFrame;
             _activityBorder.BackColor = ActivityColor(_activity);
             Invalidate(true);
@@ -405,7 +409,6 @@ internal sealed class UsageHoverForm : Form
 
         ApplyColors(this, background, foreground);
         ApplyColors(_creditsFooter, footerBackground, footerForeground);
-        ApplyColors(_resetConfirmation, footerBackground, footerForeground);
         _borderColor = light ? Color.LightGray : Color.DimGray;
         _activityBorder.BackColor = ActivityColor(_activity);
         Invalidate(true);
@@ -497,6 +500,13 @@ internal sealed class UsageHoverForm : Form
         }
 
         ResetCreditRequested.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ShowCreditSummary()
+    {
+        _resetConfirmation.Visible = false;
+        _credits.Visible = true;
+        _useCreditButton.Visible = _snapshot?.AvailableResetCredits > 0;
     }
 
     private void EnableDragging(Control control)
