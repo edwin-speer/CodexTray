@@ -65,6 +65,10 @@ public sealed record CodexSnapshot(
         }
     }
 
+    public bool ShowsResetComparedWith(CodexSnapshot previous) =>
+        UsageDropped(previous.SessionWindow, SessionWindow)
+        || UsageDropped(previous.WeeklyWindow, WeeklyWindow);
+
     private List<LimitWindow> PreferredWindows()
     {
         var bucket = PreferredBucket;
@@ -77,4 +81,7 @@ public sealed record CodexSnapshot(
             .OfType<LimitWindow>()
             .ToList();
     }
+
+    private static bool UsageDropped(LimitWindow? before, LimitWindow? after) =>
+        before is not null && after is not null && after.UsedPercent < before.UsedPercent;
 }

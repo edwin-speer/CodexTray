@@ -5,6 +5,7 @@ using CodexTray.Core;
 var failures = new List<string>();
 Run("parses rate windows and reset credits", ParsesRateWindows, failures);
 Run("parses a reset-credit result", ParsesResetCreditResult, failures);
+Run("detects a visible usage reset", DetectsVisibleUsageReset, failures);
 Run("parses usage summary and today's tokens", ParsesUsage, failures);
 Run("prefers the codex bucket", PrefersCodexBucket, failures);
 Run("formats circle labels", FormatsBarHeading, failures);
@@ -23,7 +24,7 @@ if (failures.Count > 0)
     return 1;
 }
 
-Console.WriteLine("All 13 Codex Tray checks passed.");
+Console.WriteLine("All 14 Codex Tray checks passed.");
 return 0;
 
 static void ParsesRateWindows()
@@ -61,6 +62,19 @@ static void ParsesResetCreditResult()
 {
     using var response = JsonDocument.Parse("""{"id":2,"result":{"outcome":"reset"}}""");
     Equal("reset", CodexSnapshotParser.ParseResetCreditOutcome(response.RootElement), "reset-credit outcome");
+}
+
+static void DetectsVisibleUsageReset()
+{
+    var before = ParseSnapshot();
+    var bucket = before.PreferredBucket!;
+    var after = before with
+    {
+        Buckets = [bucket with { Primary = bucket.Primary! with { UsedPercent = 0 } }]
+    };
+
+    True(after.ShowsResetComparedWith(before), "lower usage after reset");
+    True(!before.ShowsResetComparedWith(after), "higher usage is not a reset");
 }
 
 static void DetectsWeeklyReset()

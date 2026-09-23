@@ -8,6 +8,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan PinnedRefreshInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan HoverGracePeriod = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ResetPollInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan ResetVisibilityTimeout = TimeSpan.FromSeconds(30);
     private readonly NotifyIcon _notifyIcon;
     private readonly ContextMenuStrip _menu = new();
     private readonly ToolStripMenuItem _analyticsItem = new("Analytics ↗");
@@ -200,11 +202,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
         try
         {
             _client ??= new CodexAppServerClient(CodexLocator.Locate());
+            var beforeReset = _lastSnapshot;
             _resetCreditIdempotencyKey ??= Guid.NewGuid().ToString();
             var outcome = await _client.ConsumeResetCreditAsync(_resetCreditIdempotencyKey);
             _resetCreditIdempotencyKey = null;
 
-            if (outcome is not ("reset" or "alreadyRedeemed"))
+            if (outcome is "reset" or "alreadyRedeemed")
+            {
+                await WaitForVisibleResetAsync(beforeReset);
+            }
+            else
             {
                 var message = outcome == "nothingToReset"
                     ? "There is no current usage window to reset."
@@ -212,14 +219,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
                         ? "There are no reset credits available."
                         : $"Codex did not use a reset credit ({outcome}).";
                 MessageBox.Show(_hoverForm, message, "Codex Tray", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-
-            if (_refreshing)
-            {
-                _refreshAfterCurrent = true;
-            }
-            else
-            {
                 await RefreshAsync(showFailureBalloon: true);
             }
         }
@@ -236,6 +235,27 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             _hoverForm.CompleteResetCreditRequest();
         }
+    }
+
+    private async Task WaitForVisibleResetAsync(CodexSnapshot? beforeReset)
+    {
+        var deadline = DateTimeOffset.UtcNow + ResetVisibilityTimeout;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            if (!_refreshing)
+            {
+                await RefreshAsync(showFailureBalloon: true);
+            }
+
+            if (beforeReset is null || _lastSnapshot?.ShowsResetComparedWith(beforeReset) is true)
+            {
+                return;
+            }
+
+            await Task.Delay(ResetPollInterval);
+        }
+
+        throw new TimeoutException("The reset was accepted, but updated usage is not visible yet.");
     }
 
     private void ReplaceIcon(double? remainingPercent)

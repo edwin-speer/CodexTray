@@ -7,6 +7,7 @@ namespace CodexTray;
 
 internal sealed class UsageHoverForm : Form
 {
+    private static readonly string[] SpinnerFrames = ["◐", "◓", "◑", "◒"];
     private const int GaugeLabelWidth = 145;
     private const int ActivityBorderHeight = 6;
     private const string PreferencesKey = @"HKEY_CURRENT_USER\Software\CodexTray";
@@ -19,10 +20,11 @@ internal sealed class UsageHoverForm : Form
     private readonly Label _weekly = DetailLabel();
     private readonly UsageRing _weeklyRing = new("Weekly usage");
     private readonly Label _credits = DetailLabel();
-    private readonly Button _useCreditButton = FooterButton("Use");
+    private readonly Button _useCreditButton = FooterButton("Reset balance");
     private readonly Label _resetQuestion = DetailLabel();
     private readonly Button _confirmResetButton = FooterButton("Reset balance");
     private readonly Button _cancelResetButton = FooterButton("Cancel");
+    private readonly Label _resetSpinner = DetailLabel();
     private readonly FlowLayoutPanel _creditsFooter = new()
     {
         AutoSize = true,
@@ -52,11 +54,14 @@ internal sealed class UsageHoverForm : Form
     private readonly Button _pinButton = ActionButton("📌", "Pin window");
     private readonly Button _closeButton = ActionButton("✕", "Close window");
     private readonly System.Windows.Forms.Timer _activityTimer = new() { Interval = 500 };
+    private readonly System.Windows.Forms.Timer _resetSpinnerTimer = new() { Interval = 100 };
     private Font? _accessibilityFont;
     private Font? _headingFont;
     private CodexSnapshot? _snapshot;
     private Color _borderColor;
     private CodexActivity _activity;
+    private int _spinnerFrame;
+    private bool _resetInProgress;
     private bool _showSessionResetAt = ReadPreference(SessionResetAtPreference);
     private bool _showWeeklyResetAt = ReadPreference(WeeklyResetAtPreference);
 
@@ -170,10 +175,14 @@ internal sealed class UsageHoverForm : Form
         };
         _confirmResetButton.Margin = new Padding(0, 0, 8, 0);
         _cancelResetButton.Margin = Padding.Empty;
+        _resetSpinner.AccessibleName = "Resetting balance";
+        _resetSpinner.Margin = Padding.Empty;
+        _resetSpinner.Visible = false;
         _cancelResetButton.Click += (_, _) => ShowCreditSummary();
         _confirmResetButton.Click += (_, _) => RequestResetCredit();
         confirmationActions.Controls.Add(_confirmResetButton);
         confirmationActions.Controls.Add(_cancelResetButton);
+        confirmationActions.Controls.Add(_resetSpinner);
         _resetConfirmation.Controls.Add(_resetQuestion);
         _resetConfirmation.Controls.Add(confirmationActions);
         _creditsFooter.Controls.Add(_resetConfirmation);
@@ -196,6 +205,8 @@ internal sealed class UsageHoverForm : Form
         Controls.Add(layout);
         EnableDragging(layout);
         _activityTimer.Tick += (_, _) => SetActivity(CodexActivityStore.Read());
+        _resetSpinnerTimer.Tick += (_, _) =>
+            _resetSpinner.Text = $"{SpinnerFrames[_spinnerFrame++ % SpinnerFrames.Length]} Resetting…";
         _activityTimer.Start();
         SetActivity(CodexActivityStore.Read());
         ApplyAccessibilityFont();
@@ -233,7 +244,7 @@ internal sealed class UsageHoverForm : Form
         _credits.Text = DisplayFormatter.CreditsLine(snapshot.AvailableResetCredits);
         var hasCredits = snapshot.AvailableResetCredits > 0;
         _credits.Padding = new Padding(12, 8, hasCredits ? 4 : 18, 8);
-        if (!hasCredits)
+        if (!hasCredits && !_resetInProgress)
         {
             ShowCreditSummary();
         }
@@ -245,9 +256,14 @@ internal sealed class UsageHoverForm : Form
 
     public void CompleteResetCreditRequest()
     {
+        _resetInProgress = false;
+        _resetSpinnerTimer.Stop();
+        _resetSpinner.Visible = false;
         _useCreditButton.Enabled = true;
         _confirmResetButton.Enabled = true;
+        _confirmResetButton.Visible = true;
         _cancelResetButton.Enabled = true;
+        _cancelResetButton.Visible = true;
         ShowCreditSummary();
     }
 
@@ -315,6 +331,7 @@ internal sealed class UsageHoverForm : Form
         if (disposing)
         {
             _activityTimer.Dispose();
+            _resetSpinnerTimer.Dispose();
             _accessibilityFont?.Dispose();
             _headingFont?.Dispose();
         }
@@ -490,9 +507,21 @@ internal sealed class UsageHoverForm : Form
 
     private void RequestResetCredit()
     {
+        if (_resetInProgress)
+        {
+            return;
+        }
+
+        _resetInProgress = true;
         _useCreditButton.Enabled = false;
         _confirmResetButton.Enabled = false;
+        _confirmResetButton.Visible = false;
         _cancelResetButton.Enabled = false;
+        _cancelResetButton.Visible = false;
+        _spinnerFrame = 0;
+        _resetSpinner.Text = $"{SpinnerFrames[_spinnerFrame++]} Resetting…";
+        _resetSpinner.Visible = true;
+        _resetSpinnerTimer.Start();
         if (ResetCreditRequested is null)
         {
             CompleteResetCreditRequest();
