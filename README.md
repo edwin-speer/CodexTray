@@ -130,7 +130,9 @@ The probe makes a read-only request through the installed Codex CLI and prints a
 
 ## Project
 
-CodexTray is a Bear Stone Smart Home utility from [vCloudInfo.com](https://www.vcloudinfo.com). Read the [launch article](https://www.vcloudinfo.com/2026/08/codex-tray-monitor-openai-codex-usage-windows.html) or browse the larger [Bear Stone Smart Home repository](https://github.com/CCOSTAN/Home-AssistantConfig).
+CodexTray was originally developed by Bear Stone Smart Home from [vCloudInfo.com](https://www.vcloudinfo.com). Read the [launch article](https://www.vcloudinfo.com/2026/08/codex-tray-monitor-openai-codex-usage-windows.html) or browse the larger [Bear Stone Smart Home repository](https://github.com/CCOSTAN/Home-AssistantConfig).
+
+CodexTray is now further developed by Speer IT.
 
 ## License
 
