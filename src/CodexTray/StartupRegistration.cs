@@ -38,6 +38,13 @@ internal static class StartupRegistration
             return $"\"{executable}\"";
         }
 
+        var launcher = Path.Combine(AppContext.BaseDirectory, "Start-CodexTray.vbs");
+        if (File.Exists(launcher))
+        {
+            var wscript = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "wscript.exe");
+            return $"\"{wscript}\" \"{launcher}\"";
+        }
+
         var assemblyName = Assembly.GetEntryAssembly()?.GetName().Name;
         if (string.IsNullOrWhiteSpace(assemblyName))
         {

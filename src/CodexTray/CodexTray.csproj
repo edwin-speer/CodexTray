@@ -17,4 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CodexTray.Core\CodexTray.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Start-CodexTray.vbs" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
