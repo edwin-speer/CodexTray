@@ -1,6 +1,4 @@
 using Microsoft.Win32;
-using System.Reflection;
-
 namespace CodexTray;
 
 internal static class StartupRegistration
@@ -31,32 +29,21 @@ internal static class StartupRegistration
 
     private static string GetStartupCommand()
     {
-        var executable = Environment.ProcessPath
-                         ?? throw new InvalidOperationException("Could not determine the Codex Tray executable path.");
-        if (!string.Equals(Path.GetFileNameWithoutExtension(executable), "dotnet", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"\"{executable}\"";
-        }
-
-        var launcher = Path.Combine(AppContext.BaseDirectory, "Start-CodexTray.vbs");
-        if (File.Exists(launcher))
-        {
-            var wscript = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "wscript.exe");
-            return $"\"{wscript}\" \"{launcher}\"";
-        }
-
-        var assemblyName = Assembly.GetEntryAssembly()?.GetName().Name;
-        if (string.IsNullOrWhiteSpace(assemblyName))
-        {
-            throw new InvalidOperationException("Could not determine the Codex Tray assembly path.");
-        }
-
-        var assembly = Path.Combine(AppContext.BaseDirectory, assemblyName + ".dll");
+        var assembly = Path.Combine(AppContext.BaseDirectory, "CodexTray.dll");
         if (!File.Exists(assembly))
         {
             throw new FileNotFoundException("Could not find the Codex Tray assembly.", assembly);
         }
 
-        return $"\"{executable}\" \"{assembly}\"";
+        var dotnet = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            "dotnet",
+            "dotnet.exe");
+        if (!File.Exists(dotnet))
+        {
+            throw new FileNotFoundException("Could not find dotnet.exe.", dotnet);
+        }
+
+        return $"\"{dotnet}\" \"{assembly}\"";
     }
 }
